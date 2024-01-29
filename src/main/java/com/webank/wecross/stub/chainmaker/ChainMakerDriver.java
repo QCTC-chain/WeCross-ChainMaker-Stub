@@ -86,7 +86,6 @@ public class ChainMakerDriver implements Driver {
         boolean onlyHeader, 
         Connection connection, 
         GetBlockCallback callback) {
-        
         Request request = Request.newRequest(
             ChainMakerRequestType.GET_BLOCK_BY_NUMBER, 
             BigInteger.valueOf(blockNumber).toByteArray());

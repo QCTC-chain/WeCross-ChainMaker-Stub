@@ -1,5 +1,6 @@
 package com.webank.wecross.stub.chainmaker.common;
 
+import org.bouncycastle.util.encoders.Hex;
 import org.chainmaker.pb.common.ChainmakerBlock;
 import org.chainmaker.pb.common.ChainmakerTransaction;
 
@@ -16,18 +17,20 @@ public class BlockUtility {
         Block block = new Block();
         block.setRawBytes(blockInfo.getBlock().toByteArray());
 
+        ChainmakerBlock.BlockHeader cmBLockHeader = blockInfo.getBlock().getHeader();
+
         BlockHeader blockHeader = new BlockHeader();
-        blockHeader.setNumber(blockInfo.getBlock().getHeader().getBlockHeight());
-        blockHeader.setHash(blockInfo.getBlock().getHeader().getBlockHash().toString());
-        blockHeader.setPrevHash(blockInfo.getBlock().getHeader().getPreBlockHash().toString());
-        blockHeader.setTransactionRoot(blockInfo.getBlock().getHeader().getTxRoot().toString());
-        blockHeader.setStateRoot(blockInfo.getBlock().getHeader().getRwSetRoot().toString());
+        blockHeader.setNumber(cmBLockHeader.getBlockHeight());
+        blockHeader.setHash(Hex.toHexString(cmBLockHeader.getBlockHash().toByteArray()));
+        blockHeader.setPrevHash(Hex.toHexString(cmBLockHeader.getPreBlockHash().toByteArray()));
+        blockHeader.setTransactionRoot(Hex.toHexString(cmBLockHeader.getTxRoot().toByteArray()));
+        blockHeader.setStateRoot(Hex.toHexString(cmBLockHeader.getRwSetRoot().toByteArray()));
         block.setBlockHeader(blockHeader);
 
         List<String> txsHash = new ArrayList<>();
         int txsCount = blockInfo.getBlock().getTxsCount();
         for(int i = 0; i < txsCount; i++) {
-            txsHash.add(blockInfo.getBlock().getTxs(i).getResult().getRwSetHash().toString());
+            txsHash.add(Hex.toHexString(blockInfo.getBlock().getTxs(i).getResult().getRwSetHash().toByteArray()));
         }
         block.setTransactionsHashes(txsHash);
         return block;

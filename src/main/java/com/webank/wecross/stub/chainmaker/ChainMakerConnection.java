@@ -26,6 +26,10 @@ public class ChainMakerConnection implements Connection {
         this.chainClient = chainClient;
     }
 
+    public ChainClient getChainClient() {
+        return this.chainClient;
+    }
+
     @Override
     public void asyncSend(Request request, Callback callback) {
         if(request.getType() == ChainMakerRequestType.GET_BLOCK_NUMBER) {
@@ -93,7 +97,7 @@ public class ChainMakerConnection implements Connection {
 
             response.setErrorCode(ChainMakerStatusCode.Success);
             response.setErrorMessage(ChainMakerStatusCode.getStatusMessage(ChainMakerStatusCode.Success));
-            response.setData(blockInfo.getBlock().toByteArray());
+            response.setData(blockInfo.toByteArray());
             
         } catch (ChainClientException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);

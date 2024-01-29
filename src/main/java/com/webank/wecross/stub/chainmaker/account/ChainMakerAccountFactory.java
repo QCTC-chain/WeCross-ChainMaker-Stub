@@ -24,7 +24,7 @@ public class ChainMakerAccountFactory {
         User user = null;
         String authType = (String) properties.get("authType");
         String orgId = (String) properties.get("orgId");
-        String name = (String) properties.get("name");
+        String name = "chainmaker";
 
         if(authType.equals(AuthType.PermissionedWithKey.getMsg()) || authType.equals(AuthType.Public.getMsg())) {
             String privateKeyStr = (String) properties.get("privateKey");
@@ -47,9 +47,9 @@ public class ChainMakerAccountFactory {
             }
         } else {
             String userSignKey = (String)properties.get("userSignKey");
-            String userSignCrt = (String)properties.get("userSignCrt");
-            String userKey = (String)properties.get("userSignCrt");
-            String userCrt = (String)properties.get("userSignCrt");
+            String userSignCrt = (String)properties.get("userSignCert");
+            String userKey = (String)properties.get("userKey");
+            String userCrt = (String)properties.get("userCert");
             boolean pkcs11Enable = (boolean)properties.get("pkcs11Enable");
             try {
                 user = new User(

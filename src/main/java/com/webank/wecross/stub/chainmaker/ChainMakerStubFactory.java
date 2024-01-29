@@ -59,16 +59,17 @@ public class ChainMakerStubFactory implements StubFactory {
 
     @Override
     public Account newAccount(Map<String, Object> properties) {
+        logger.info("xxxxxxx xxxxxx newAccount, properties: {}", properties);
         return ChainMakerAccountFactory.build(properties);
     }
 
     @Override
     public void generateAccount(String path, String[] args) {
-
+        logger.info("generateAccount, path: {}, args: {}", path, args);
     }
 
     @Override
     public void generateConnection(String path, String[] args) {
-
+        logger.info("generateConnection, path: {}, args: {}", path, args);
     }
 }
