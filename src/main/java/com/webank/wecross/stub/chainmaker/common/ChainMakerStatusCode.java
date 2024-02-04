@@ -4,6 +4,8 @@ public class ChainMakerStatusCode {
     public static final int Success = 0;
     public static final int HandleGetBlockNumberFailed = 2023;
     public static final int HandleGetBlockFailed = 2024;
+    public static final int HandleDeployContract = 3000;
+    public static final int HandleGetContracts = 3001;
 
     public static String getStatusMessage(int status) {
         String message = "";

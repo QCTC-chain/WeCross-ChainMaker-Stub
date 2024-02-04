@@ -1,5 +1,9 @@
 package com.webank.wecross.stub.chainmaker;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.webank.wecross.stub.Account;
 import com.webank.wecross.stub.Connection;
 import com.webank.wecross.stub.Driver;
@@ -8,14 +12,22 @@ import com.webank.wecross.stub.StubFactory;
 import com.webank.wecross.stub.WeCrossContext;
 import com.webank.wecross.stub.chainmaker.account.ChainMakerAccountFactory;
 
+import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
+import com.webank.wecross.stub.chainmaker.custom.CommandHandlerDispatcher;
+import com.webank.wecross.stub.chainmaker.custom.DeployContractHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Stub("chainmaker")
 public class ChainMakerStubFactory implements StubFactory {
     private Logger logger = LoggerFactory.getLogger(ChainMakerStubFactory.class);
+
+    private String stubConfigPath = "";
 
     public static void main(String[] args) throws Exception {
         System.out.println("This is chainmaker Stub Plugin. Please copy this file to router/plugin/");
@@ -28,7 +40,23 @@ public class ChainMakerStubFactory implements StubFactory {
 
     @Override
     public Driver newDriver() {
-        Driver driver = new ChainMakerDriver();
+        logger.info("New Driver");
+
+        if (stubConfigPath.isEmpty()) {
+            logger.warn("stubConfigPath is empty.");
+            return null;
+        }
+        ChainMakerDriver driver = new ChainMakerDriver();
+
+        DeployContractHandler deployContractHandler = DeployContractHandler.build(stubConfigPath, "stub.toml");
+        deployContractHandler.setDriver(driver);
+
+        CommandHandlerDispatcher commandHandlerDispatcher = new CommandHandlerDispatcher();
+        commandHandlerDispatcher.registerCommandHandler(ChainMakerConstant.CUSTOM_COMMAND_DEPLOY, deployContractHandler);
+
+
+        driver.setCommandHandlerDispatcher(commandHandlerDispatcher);
+
         return driver;
     }
 
@@ -36,7 +64,8 @@ public class ChainMakerStubFactory implements StubFactory {
     public Connection newConnection(String path) {
         try {
             logger.info("New connection: {}", path);
-            ChainMakerConnection connection = ChainMakerConnectionFactory.build(path, "sdk_config.yml");
+            stubConfigPath = path;
+            ChainMakerConnection connection = ChainMakerConnectionFactory.build(stubConfigPath, "sdk_config.yml");
             
             // check proxy contract
             if(connection.hasProxyDeployed() == false) {
@@ -59,8 +88,24 @@ public class ChainMakerStubFactory implements StubFactory {
 
     @Override
     public Account newAccount(Map<String, Object> properties) {
-        logger.info("xxxxxxx xxxxxx newAccount, properties: {}", properties);
-        return ChainMakerAccountFactory.build(properties);
+        try {
+            String ext = (String) properties.get("ext0");
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, String> chainMakerProperties =
+                    objectMapper.readValue(ext, new TypeReference<Map<String, String>>(){});
+
+            chainMakerProperties.put("userKey", (String) properties.get("secKey"));
+            chainMakerProperties.put("userCert", (String) properties.get("pubKey"));
+            chainMakerProperties.put("username", (String) properties.get("username"));
+            chainMakerProperties.put("type", (String) properties.get("type"));
+
+            logger.info("newAccount, properties: {}", chainMakerProperties);
+
+            return ChainMakerAccountFactory.build(chainMakerProperties);
+        } catch (JsonProcessingException e) {
+            logger.warn("newAccount was failure. e: ", e);
+            return null;
+        }
     }
 
     @Override

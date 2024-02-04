@@ -5,6 +5,8 @@ import org.chainmaker.sdk.config.NodeConfig;
 import org.chainmaker.sdk.config.SdkConfig;
 import org.chainmaker.sdk.utils.FileUtils;
 import org.chainmaker.sdk.ChainClient;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.Resource;
 import org.yaml.snakeyaml.Yaml;
 
 import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;

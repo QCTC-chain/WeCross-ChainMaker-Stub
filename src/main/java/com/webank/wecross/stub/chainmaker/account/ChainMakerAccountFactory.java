@@ -18,16 +18,15 @@ import java.util.Map;
 public class ChainMakerAccountFactory {
     private static final Logger logger = LoggerFactory.getLogger(ChainMakerAccountFactory.class);
 
-    public static ChainMakerAccount build(Map<String, Object> properties) {
-        logger.debug("build a chainmaker account. properties: ", properties);
-
+    public static ChainMakerAccount build(Map<String, String> properties) {
         User user = null;
-        String authType = (String) properties.get("authType");
-        String orgId = (String) properties.get("orgId");
-        String name = "chainmaker";
+
+        String authType = properties.get("authType");
+        String orgId = properties.get("orgId");
+        String name = properties.get("username");
 
         if(authType.equals(AuthType.PermissionedWithKey.getMsg()) || authType.equals(AuthType.Public.getMsg())) {
-            String privateKeyStr = (String) properties.get("privateKey");
+            String privateKeyStr = properties.get("privateKey");
             try {
                 user = new User(orgId);
                 PrivateKey privateKey = CryptoUtils.getPrivateKeyFromBytes(privateKeyStr.getBytes());
@@ -46,11 +45,11 @@ public class ChainMakerAccountFactory {
                 return null;
             }
         } else {
-            String userSignKey = (String)properties.get("userSignKey");
-            String userSignCrt = (String)properties.get("userSignCert");
-            String userKey = (String)properties.get("userKey");
-            String userCrt = (String)properties.get("userCert");
-            boolean pkcs11Enable = (boolean)properties.get("pkcs11Enable");
+            String userSignKey = properties.get("userSignKey");
+            String userSignCrt = properties.get("userSignCert");
+            String userKey = properties.get("userKey");
+            String userCrt = properties.get("userCert");
+            boolean pkcs11Enable = properties.get("pkcs11Enable").equalsIgnoreCase("true") ? true : false;
             try {
                 user = new User(
                     orgId, 

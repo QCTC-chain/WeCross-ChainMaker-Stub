@@ -1,26 +1,39 @@
 package com.webank.wecross.stub.chainmaker;
 
-import com.webank.wecross.stub.Connection;
-import com.webank.wecross.stub.Request;
-import com.webank.wecross.stub.Response;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.webank.wecross.stub.*;
 
+import com.webank.wecross.stub.chainmaker.common.BlockUtility;
+import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerRequestType;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerStatusCode;
 
 import org.chainmaker.pb.common.ChainmakerBlock;
 import org.chainmaker.pb.common.ChainmakerTransaction;
+import org.chainmaker.pb.common.ContractOuterClass;
 import org.chainmaker.sdk.ChainClient;
 import org.chainmaker.sdk.ChainClientException;
 import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 public class ChainMakerConnection implements Connection {
+    private Logger logger = LoggerFactory.getLogger(ChainMakerConnection.class);
     private static final long RPC_CALL_TIMEOUT = 5000;
     private ChainClient chainClient;
+
+    private Map<String, String> properties = new HashMap<>();
+
+    private final CompletableFuture<Boolean> getContractListFuture = new CompletableFuture<>();
 
     public ChainMakerConnection(ChainClient chainClient) {
         this.chainClient = chainClient;
@@ -42,6 +55,8 @@ public class ChainMakerConnection implements Connection {
             handleAsyncCallRequest(request, callback);
         } else if (request.getType() == ChainMakerRequestType.SEND_TRANSACTION) {
             handleAsyncTransactionRequest(request, callback);
+        } else if (request.getType() == ChainMakerRequestType.GET_CONTRACT_LIST) {
+            handleGetContractListRequest(request, callback);
         }
     }
 
@@ -52,17 +67,75 @@ public class ChainMakerConnection implements Connection {
 
     @Override
     public Map<String, String> getProperties() {
-        return new HashMap<>();
+        logger.info("getProperties: {}", properties);
+        return properties;
+    }
+
+    public void addProperty(String key, String value) {
+        this.properties.put(key, value);
+    }
+
+    public List<ResourceInfo> getResources() {
+        List<ResourceInfo> resourceInfos = new ArrayList<>();
+        Request request = Request.newRequest(ChainMakerRequestType.GET_CONTRACT_LIST, "");
+
+        asyncSend(
+                request,
+                response -> {
+                    if(response.getErrorCode() != 0) {
+                        logger.warn(
+                                " asyncGetTransaction, errorCode: {},  errorMessage: {}",
+                                response.getErrorCode(),
+                                response.getErrorMessage());
+                    } else {
+                        try {
+                            ContractOuterClass.Contract contract = ContractOuterClass
+                                    .Contract
+                                    .parseFrom(response.getData());
+
+                            logger.debug("got a contract. name = {}, address = {}, version = {}",
+                                    contract.getName(), contract.getAddress(), contract.getVersion());
+
+                            ResourceInfo resourceInfo = new ResourceInfo();
+                            resourceInfo.setStubType(
+                                    this.getProperties().get(ChainMakerConstant.CHAINMAKER_STUB_TYPE));
+                            resourceInfo.setName(contract.getName());
+                            Map<Object, Object> resourceProperties = new HashMap<>();
+                            resourceProperties.put(
+                                    ChainMakerConstant.CHAINMAKER_CHAIN_ID,
+                                    this.getProperties().get(ChainMakerConstant.CHAINMAKER_CHAIN_ID));
+                            resourceProperties.put(
+                                    ChainMakerConstant.CHAINMAKER_CONTRACT_ADDRESS,
+                                    contract.getAddress());
+                            resourceProperties.put(
+                                    ChainMakerConstant.CHAINMAKER_CONTRACT_VERSION,
+                                    contract.getVersion());
+                            resourceInfo.setProperties(resourceProperties);
+                            resourceInfos.add(resourceInfo);
+                        } catch (InvalidProtocolBufferException e) {
+                            logger.warn("getResources was failure. e: {}", e.getMessage());
+                        }
+                    }
+                }
+        );
+
+        try {
+            getContractListFuture.get();
+        } catch (InterruptedException e) {
+
+        } catch (ExecutionException e) {
+
+        }
+
+        return resourceInfos;
     }
 
     public boolean hasProxyDeployed() {
-        // return getProperties().containsKey(ChainMakerConstant.BCOS_PROXY_NAME);
-        return true;
+         return getProperties().containsKey(ChainMakerConstant.CHAINMAKER_PROXY_NAME);
     }
 
     public boolean hasHubDeployed() {
-        // return getProperties().containsKey(ChainMakerConstant.BCOS_HUB_NAME);
-        return true;
+         return getProperties().containsKey(ChainMakerConstant.CHAINMAKER_HUB_NAME);
     }
 
     private void handleAsyncGetBlockNumberRequest(Request request, Callback callback) {
@@ -77,12 +150,15 @@ public class ChainMakerConnection implements Connection {
         } catch (ChainClientException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockNumberFailed);
             response.setErrorMessage(ec.getMessage());
+            return;
         } catch (ChainMakerCryptoSuiteException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockNumberFailed);
             response.setErrorMessage(ec.getMessage());
+            return;
         } catch (Exception ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockNumberFailed);
             response.setErrorMessage(ec.getMessage());
+            return;
         }
         callback.onResponse(response);
     } 
@@ -102,12 +178,15 @@ public class ChainMakerConnection implements Connection {
         } catch (ChainClientException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
+            return;
         } catch (ChainMakerCryptoSuiteException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
+            return;
         } catch (Exception ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
+            return;
         }
         callback.onResponse(response);
     }
@@ -124,12 +203,15 @@ public class ChainMakerConnection implements Connection {
         } catch (ChainClientException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
+            return;
         } catch (ChainMakerCryptoSuiteException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
+            return;
         } catch (Exception ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
+            return;
         }
 
         callback.onResponse(response);
@@ -140,5 +222,34 @@ public class ChainMakerConnection implements Connection {
 
     private void handleAsyncTransactionRequest(Request request, Callback callback) {
 
+    }
+
+    private void handleGetContractListRequest(Request request, Callback callback) {
+        Response response = new Response();
+        try {
+            ContractOuterClass.Contract[] contracts = chainClient.getContractList(RPC_CALL_TIMEOUT);
+
+            response.setErrorCode(ChainMakerStatusCode.Success);
+            response.setErrorMessage(ChainMakerStatusCode.getStatusMessage(ChainMakerStatusCode.Success));
+
+            for(ContractOuterClass.Contract contract : contracts) {
+                if (BlockUtility.isSystemContract(contract.getName())) {
+                    continue;
+                }
+                response.setData(contract.toByteArray());
+                callback.onResponse(response);
+            }
+        } catch (ChainClientException ec) {
+            response.setErrorCode(ChainMakerStatusCode.HandleGetContracts);
+            response.setErrorMessage(ec.getMessage());
+        } catch (ChainMakerCryptoSuiteException ec) {
+            response.setErrorCode(ChainMakerStatusCode.HandleGetContracts);
+            response.setErrorMessage(ec.getMessage());
+        } catch (Exception ec) {
+            response.setErrorCode(ChainMakerStatusCode.HandleGetContracts);
+            response.setErrorMessage(ec.getMessage());
+        } finally {
+            getContractListFuture.complete(Boolean.TRUE);
+        }
     }
 }

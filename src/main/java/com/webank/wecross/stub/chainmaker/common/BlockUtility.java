@@ -43,4 +43,19 @@ public class BlockUtility {
         transaction.setAccountIdentity(chainMakerTransaction.getSender().toString());
         return transaction;
     }
+
+    private static String[] systemContracts = new String[] {
+        "ACCOUNT_MANAGER", "ARCHIVE_MANAGE", "CERT_MANAGE", "CHAIN_CONFIG", "CHAIN_QUERY", "T",
+        "CONTRACT_MANAGE", "CROSS_TRANSACTION", "DPOS_ERC20", "DPOS_STAKE", "GOVERNANCE",
+        "MULTI_SIGN", "PRIVATE_COMPUTE", "PUBKEY_MANAGE", "RELAY_CROSS", "SUBSCRIBE_MANAGE"
+    };
+
+    public static boolean isSystemContract(String name) {
+        for(String systemName: systemContracts) {
+            if(systemName.equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
