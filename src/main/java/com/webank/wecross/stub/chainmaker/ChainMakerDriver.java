@@ -73,14 +73,21 @@ public class ChainMakerDriver implements Driver {
         boolean byProxy, 
         Connection connection, 
         Callback callback) {
+        asyncSendTransactionByProxy(context, request, connection, callback);
+    }
+
+    private void asyncSendTransactionByProxy(
+            TransactionContext context,
+            TransactionRequest request,
+            Connection connection,
+            Callback callback) {
         String method = request.getMethod();
         Path path = context.getPath();
-
         logger.info("asyncSendTransaction. path: {}, context: {}, request: {}", path, context, request);
 
         if(method.equals(ChainMakerConstant.CUSTOM_COMMAND_DEPLOY)) {
             // 部署合约
-            deployContract(context, request, byProxy, connection, callback);
+            deployContract(context, request, connection, callback);
         } else {
 
         }
@@ -89,7 +96,6 @@ public class ChainMakerDriver implements Driver {
     private void deployContract(
             TransactionContext context,
             TransactionRequest request,
-            boolean byProxy,
             Connection connection,
             Callback callback
     ) {
@@ -98,7 +104,6 @@ public class ChainMakerDriver implements Driver {
         String contractName = request.getArgs()[2];
         String version = request.getArgs()[3];
         List<User> users = (List<User>)request.getOptions().get("EndorsementEntries");
-        ResultOuterClass.TxResponse response = null;
         try {
             org.chainmaker.pb.common.Request.Payload payload = chainMakerConnection
                     .getChainClient()
@@ -109,10 +114,44 @@ public class ChainMakerDriver implements Driver {
             org.chainmaker.pb.common.Request.EndorsementEntry[] endorsementEntries = SdkUtils.getEndorsers(
                     payload, users.stream().toArray(User[]::new));
 
-            response = chainMakerConnection
-                    .getChainClient()
-                    .sendContractManageRequest(
-                            payload, endorsementEntries, 5000, 5000);
+            Request weCrossRequest = Request.newRequest(
+                    ChainMakerRequestType.CREATE_CUSTOMER_CONTRACT,
+                    payload.toByteArray());
+            ResourceInfo resourceInfo = new ResourceInfo();
+            resourceInfo.setName(context.getPath().getResource());
+            resourceInfo.getProperties().put(ChainMakerConstant.CHAINMAKER_ENDORSEMENTENTRY, endorsementEntries);
+            weCrossRequest.setResourceInfo(resourceInfo);
+
+            chainMakerConnection.asyncSend(
+                    weCrossRequest,
+                    response -> {
+                        if (response.getErrorCode() != ChainMakerStatusCode.Success) {
+                            logger.warn("deployContract, errorCode: {}, errorMessage: {}",
+                                    response.getErrorCode(),
+                                    response.getErrorMessage());
+                            callback.onTransactionResponse(
+                                    new TransactionException(
+                                            ChainMakerStatusCode.HandleDeployContract, response.getErrorMessage()),
+                                    null
+                            );
+                        } else {
+                            try {
+
+                                ResultOuterClass.ContractResult contractResult = ResultOuterClass
+                                        .ContractResult.parseFrom(response.getData());
+                                TransactionResponse transactionResponse = new TransactionResponse();
+                                transactionResponse.setErrorCode(ResultOuterClass.TxStatusCode.SUCCESS.getNumber());
+                                String[] result = new String[]{String.format("%d", contractResult.getCode()), contractResult.getMessage()};
+                                transactionResponse.setResult(result);
+                                callback.onTransactionResponse(null, transactionResponse);
+                            } catch (InvalidProtocolBufferException e) {
+                                callback.onTransactionResponse(
+                                        new TransactionException(ChainMakerStatusCode.HandleDeployContract, e.getMessage()),
+                                        null
+                                );
+                            }
+                        }
+                    });
 
         } catch (ChainMakerCryptoSuiteException e) {
             logger.warn("deploy contract {} was failure. e: {}", contractName, e.getMessage());
@@ -120,37 +159,10 @@ public class ChainMakerDriver implements Driver {
                     new TransactionException(ChainMakerStatusCode.HandleDeployContract, e.getMessage()),
                     null
             );
-            return;
         } catch (UtilsException e) {
             logger.warn("deploy contract {} was failure. e: {}", contractName, e.getMessage());
             callback.onTransactionResponse(
                     new TransactionException(ChainMakerStatusCode.HandleDeployContract, e.getMessage()),
-                    null
-            );
-            return;
-        } catch (ChainClientException e) {
-            logger.warn("deploy contract {} was failure. e: {}", contractName, e.getMessage());
-            callback.onTransactionResponse(
-                    new TransactionException(ChainMakerStatusCode.HandleDeployContract, e.getMessage()),
-                    null
-            );
-            return;
-        }
-
-        if(response.getCode() == ResultOuterClass.TxStatusCode.SUCCESS) {
-            logger.info("deploy contract {} was successful. tx_id: {}", contractName, response.getTxId());
-
-            TransactionResponse transactionResponse = new TransactionResponse();
-            transactionResponse.setErrorCode(ResultOuterClass.TxStatusCode.SUCCESS.getNumber());
-            String[] result = new String[]{response.getTxId(), response.getMessage()};
-            transactionResponse.setResult(result);
-            callback.onTransactionResponse(null, transactionResponse);
-        } else {
-            logger.warn("deploy contract {} was failure. response: {}", contractName, response);
-            callback.onTransactionResponse(
-                    new TransactionException(
-                            response.getCode().getNumber(),
-                            response.getContractResult().getMessage()),
                     null
             );
         }

@@ -1,6 +1,7 @@
 package com.webank.wecross.stub.chainmaker;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.sun.net.httpserver.Filter;
 import com.webank.wecross.stub.*;
 
 import com.webank.wecross.stub.chainmaker.common.BlockUtility;
@@ -11,6 +12,7 @@ import com.webank.wecross.stub.chainmaker.common.ChainMakerStatusCode;
 import org.chainmaker.pb.common.ChainmakerBlock;
 import org.chainmaker.pb.common.ChainmakerTransaction;
 import org.chainmaker.pb.common.ContractOuterClass;
+import org.chainmaker.pb.common.ResultOuterClass;
 import org.chainmaker.sdk.ChainClient;
 import org.chainmaker.sdk.ChainClientException;
 import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
@@ -57,6 +59,8 @@ public class ChainMakerConnection implements Connection {
             handleAsyncTransactionRequest(request, callback);
         } else if (request.getType() == ChainMakerRequestType.GET_CONTRACT_LIST) {
             handleGetContractListRequest(request, callback);
+        } else if (request.getType() == ChainMakerRequestType.CREATE_CUSTOMER_CONTRACT) {
+            handleCreateCustomerContractRequest(request, callback);
         }
     }
 
@@ -93,7 +97,7 @@ public class ChainMakerConnection implements Connection {
                                     .Contract
                                     .parseFrom(response.getData());
 
-                            logger.debug("got a contract. name = {}, address = {}, version = {}",
+                            logger.info("got a contract. name = {}, address = {}, version = {}",
                                     contract.getName(), contract.getAddress(), contract.getVersion());
 
                             ResourceInfo resourceInfo = new ResourceInfo();
@@ -150,15 +154,12 @@ public class ChainMakerConnection implements Connection {
         } catch (ChainClientException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockNumberFailed);
             response.setErrorMessage(ec.getMessage());
-            return;
         } catch (ChainMakerCryptoSuiteException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockNumberFailed);
             response.setErrorMessage(ec.getMessage());
-            return;
         } catch (Exception ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockNumberFailed);
             response.setErrorMessage(ec.getMessage());
-            return;
         }
         callback.onResponse(response);
     } 
@@ -178,15 +179,12 @@ public class ChainMakerConnection implements Connection {
         } catch (ChainClientException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
-            return;
         } catch (ChainMakerCryptoSuiteException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
-            return;
         } catch (Exception ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
-            return;
         }
         callback.onResponse(response);
     }
@@ -203,15 +201,12 @@ public class ChainMakerConnection implements Connection {
         } catch (ChainClientException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
-            return;
         } catch (ChainMakerCryptoSuiteException ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
-            return;
         } catch (Exception ec) {
             response.setErrorCode(ChainMakerStatusCode.HandleGetBlockFailed);
             response.setErrorMessage(ec.getMessage());
-            return;
         }
 
         callback.onResponse(response);
@@ -251,5 +246,43 @@ public class ChainMakerConnection implements Connection {
         } finally {
             getContractListFuture.complete(Boolean.TRUE);
         }
+    }
+
+    private void handleCreateCustomerContractRequest(Request request, Callback callback) {
+        Response response = new Response();
+        try {
+            org.chainmaker.pb.common.Request.Payload payload = org.chainmaker.pb.common.Request.Payload.parseFrom(
+                    request.getData()
+            );
+            ResourceInfo resourceInfo = request.getResourceInfo();
+            org.chainmaker.pb.common.Request.EndorsementEntry[] endorsementEntries =
+                    (org.chainmaker.pb.common.Request.EndorsementEntry[])resourceInfo.getProperties().get(
+                            ChainMakerConstant.CHAINMAKER_ENDORSEMENTENTRY);
+
+            ResultOuterClass.TxResponse weCrossResponse = chainClient.sendContractManageRequest(
+                    payload, endorsementEntries, RPC_CALL_TIMEOUT, RPC_CALL_TIMEOUT);
+
+            if(weCrossResponse.getCode() == ResultOuterClass.TxStatusCode.SUCCESS) {
+                logger.info("deploy a contract {} was successful. tx_id: {}",
+                        resourceInfo.getName(), weCrossResponse.getTxId());
+                response.setErrorCode(ChainMakerStatusCode.Success);
+                response.setData(weCrossResponse.getContractResult().toByteArray());
+            } else {
+                logger.warn("deploy a contract {} was failure. response: {}",
+                        resourceInfo.getName(), weCrossResponse.getContractResult().getMessage());
+                response.setErrorCode(ChainMakerStatusCode.HandleDeployContract);
+                response.setErrorMessage(weCrossResponse.getContractResult().getMessage());
+            }
+        } catch (InvalidProtocolBufferException e) {
+            response.setErrorCode(ChainMakerStatusCode.HandleDeployContract);
+            response.setErrorMessage(e.getMessage());
+        } catch (ChainMakerCryptoSuiteException e) {
+            response.setErrorCode(ChainMakerStatusCode.HandleDeployContract);
+            response.setErrorMessage(e.getMessage());
+        } catch (ChainClientException e) {
+            response.setErrorCode(ChainMakerStatusCode.HandleDeployContract);
+            response.setErrorMessage(e.getMessage());
+        }
+        callback.onResponse(response);
     }
 }
