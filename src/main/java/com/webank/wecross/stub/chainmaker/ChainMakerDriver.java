@@ -1,7 +1,9 @@
 package com.webank.wecross.stub.chainmaker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.webank.wecross.exception.WeCrossException;
 import com.webank.wecross.stub.*;
+import com.webank.wecross.stub.chainmaker.abi.wrapper.*;
 import com.webank.wecross.stub.chainmaker.account.ChainMakerAccount;
 import com.webank.wecross.stub.chainmaker.common.BlockUtility;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
@@ -12,29 +14,40 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerStatusCode;
 import com.webank.wecross.stub.chainmaker.custom.CommandHandler;
 import com.webank.wecross.stub.chainmaker.custom.CommandHandlerDispatcher;
+import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
+import com.webank.wecross.stub.chainmaker.utils.FunctionUtility;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.bouncycastle.util.encoders.Hex;
 import org.chainmaker.pb.common.ChainmakerBlock;
 import org.chainmaker.pb.common.ChainmakerTransaction;
 import org.chainmaker.pb.common.ContractOuterClass;
 import org.chainmaker.pb.common.ResultOuterClass;
-import org.chainmaker.sdk.ChainClientException;
 import org.chainmaker.sdk.User;
 import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
 import org.chainmaker.sdk.utils.SdkUtils;
 import org.chainmaker.sdk.utils.UtilsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.web3j.abi.FunctionEncoder;
+import org.web3j.abi.FunctionReturnDecoder;
+import org.web3j.abi.TypeReference;
+import org.web3j.abi.datatypes.*;
+import org.web3j.abi.datatypes.generated.Uint256;
 
+import java.io.IOException;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 public class ChainMakerDriver implements Driver {
     private static final Logger logger = LoggerFactory.getLogger(ChainMakerDriver.class);
     private CommandHandlerDispatcher commandHandlerDispatcher;
 
     private ObjectMapper objectMapper = ObjectMapperFactory.getObjectMapper();
+
+    private ABICodecJsonWrapper abiCodecJsonWrapper = new ABICodecJsonWrapper();
 
     public void setCommandHandlerDispatcher(CommandHandlerDispatcher commandHandlerDispatcher) {
         this.commandHandlerDispatcher = commandHandlerDispatcher;
@@ -47,7 +60,6 @@ public class ChainMakerDriver implements Driver {
 
     @Override
     public List<ResourceInfo> getResources(Connection connection) {
-        logger.info("xxxxxx getResources:w");
         if (connection instanceof ChainMakerConnection) {
             return ((ChainMakerConnection) connection).getResources();
         }
@@ -64,6 +76,7 @@ public class ChainMakerDriver implements Driver {
         Connection connection, 
         Callback callback) {
         logger.info("async, context: {}, request: {}, proxy: {}", context, request, byProxy);
+        asyncCallByProxy(context, request, connection, callback);
     }
 
     @Override
@@ -85,26 +98,30 @@ public class ChainMakerDriver implements Driver {
         Path path = context.getPath();
         logger.info("asyncSendTransaction. path: {}, context: {}, request: {}", path, context, request);
 
-        if(method.equals(ChainMakerConstant.CUSTOM_COMMAND_DEPLOY)) {
+        if(method.equals(ChainMakerConstant.CUSTOM_COMMAND_DEPLOY_CONTRACT)) {
             // 部署合约
-            deployContract(context, request, connection, callback);
+            deployWeCrossCustomerContract(context, request, connection, callback);
         } else {
-
+            invokeSendTransaction(context, request, connection, callback);
         }
     }
 
-    private void deployContract(
+    private void deployWeCrossCustomerContract(
             TransactionContext context,
             TransactionRequest request,
             Connection connection,
             Callback callback
     ) {
+        Path path = context.getPath();
         ChainMakerConnection chainMakerConnection = (ChainMakerConnection)connection;
         byte[] contractBinary = request.getArgs()[1].getBytes();
-        String contractName = request.getArgs()[2];
-        String version = request.getArgs()[3];
+        String contractABIContent = request.getArgs()[2];
+        String contractName = request.getArgs()[3];
+        String version = request.getArgs()[4];
         List<User> users = (List<User>)request.getOptions().get("EndorsementEntries");
         try {
+            ConfigUtils.writeContractABI(chainMakerConnection.getConfigPath(), path.getResource(), contractABIContent);
+
             org.chainmaker.pb.common.Request.Payload payload = chainMakerConnection
                     .getChainClient()
                     .createContractCreatePayload(
@@ -165,7 +182,244 @@ public class ChainMakerDriver implements Driver {
                     new TransactionException(ChainMakerStatusCode.HandleDeployContract, e.getMessage()),
                     null
             );
+        } catch (IOException e) {
+            logger.warn("deploy contract {} was failure. e: {}", contractName, e.getMessage());
+            callback.onTransactionResponse(
+                    new TransactionException(ChainMakerStatusCode.HandleDeployContract, e.getMessage()),
+                    null
+            );
+        } catch (WeCrossException e) {
+            logger.warn("deploy contract {} was failure. e: {}", contractName, e.getMessage());
+            callback.onTransactionResponse(
+                    new TransactionException(ChainMakerStatusCode.HandleDeployContract, e.getMessage()),
+                    null
+            );
         }
+    }
+
+    private void asyncCallByProxy(
+            TransactionContext context,
+            TransactionRequest request,
+            Connection connection,
+            Callback callback) {
+        Path path = context.getPath();
+        ChainMakerConnection chainMakerConnection = (ChainMakerConnection)connection;
+        List<ABIDefinition> abiDefinitions = null;
+        String encodedArgs = "";
+        try {
+            abiDefinitions = getABIFunctions(
+                    chainMakerConnection.getConfigPath(),
+                    path.getResource(),
+                    request.getMethod());
+            encodedArgs = encodeFunctionArgs(abiDefinitions.get(0), request.getArgs());
+        } catch (Exception e) {
+            callback.onTransactionResponse(
+                    new TransactionException(
+                            ChainMakerStatusCode.HandleSendTransactionFailed,
+                            e.getMessage()),
+                    null
+            );
+            return;
+        }
+
+        String transactionID = (String)request.getOptions().get(StubConstant.XA_TRANSACTION_ID);
+        if (Objects.isNull(transactionID)) {
+            transactionID = "";
+        }
+        Function function = FunctionUtility.newConstantCallProxyFunction(
+                transactionID,
+                path.toString(),
+                abiDefinitions.get(0).getMethodSignatureAsString(),
+                encodedArgs
+        );
+        invokeWeCrossProxy(context, request, connection, function, callback);
+    }
+
+    private void invokeSendTransaction(
+            TransactionContext context,
+            TransactionRequest request,
+            Connection connection,
+            Callback callback
+    ) {
+        Path path = context.getPath();
+        ChainMakerConnection chainMakerConnection = (ChainMakerConnection)connection;
+        List<ABIDefinition> abiDefinitions = null;
+        String encodedArgs = "";
+        try {
+            abiDefinitions = getABIFunctions(
+                    chainMakerConnection.getConfigPath(),
+                    path.getResource(),
+                    request.getMethod());
+            encodedArgs = encodeFunctionArgs(abiDefinitions.get(0), request.getArgs());
+        } catch (Exception e) {
+            logger.warn("Handling ABI definitions was failure. {}", e.getMessage());
+            callback.onTransactionResponse(
+                    new TransactionException(
+                            ChainMakerStatusCode.HandleSendTransactionFailed,
+                            e.getMessage()),
+                    null
+            );
+            return;
+        }
+
+        String uniqueID = (String)request.getOptions().get(StubConstant.TRANSACTION_UNIQUE_ID);
+        String uid = Objects.nonNull(uniqueID) ? uniqueID : UUID.randomUUID().toString().replaceAll("-", "");
+        String transactionID = (String)request.getOptions().get(StubConstant.XA_TRANSACTION_ID);
+        Long transactionSeq =(Long)request.getOptions().get(StubConstant.XA_TRANSACTION_SEQ);
+        Long seq = Objects.isNull(transactionSeq) ? 0 : transactionSeq;
+
+        if (Objects.isNull(transactionID)) {
+            transactionID = "";
+        }
+
+        Function function = FunctionUtility
+                .newSendTransactionProxyFunction(
+                        uid,
+                        transactionID,
+                        seq,
+                        path.toString(),
+                        abiDefinitions.get(0).getMethodSignatureAsString(),
+                        encodedArgs);
+
+        invokeWeCrossProxy(context, request, connection, function, callback);
+    }
+
+    private void invokeWeCrossProxy(
+            TransactionContext context,
+            TransactionRequest request,
+            Connection connection,
+            Function weCrossFunction,
+            Callback callback
+    ) {
+        ChainMakerConnection chainMakerConnection = (ChainMakerConnection)connection;
+        String methodEncode = FunctionEncoder.encode(weCrossFunction);
+        Request weCrossRequest = Request.newRequest(
+                ChainMakerRequestType.SEND_TRANSACTION,
+                methodEncode.getBytes()
+        );
+
+        chainMakerConnection.asyncSend(
+                weCrossRequest,
+                response -> {
+                    handleAsyncSendResponse(response, context, request, callback);
+                }
+        );
+    }
+
+    private void handleAsyncSendResponse(
+            Response response,
+            TransactionContext context,
+            TransactionRequest request,
+            Callback callback) {
+        if (response.getErrorCode() != ChainMakerStatusCode.Success) {
+            logger.warn("sendTransaction, errorCode: {}, errorMessage: {}",
+                    response.getErrorCode(),
+                    response.getErrorMessage());
+            callback.onTransactionResponse(
+                    new TransactionException(
+                            ChainMakerStatusCode.HandleSendTransactionFailed,
+                            response.getErrorMessage()),
+                    null
+            );
+        } else {
+            try {
+                ResultOuterClass.TxResponse chainMakerResponse = ResultOuterClass
+                        .TxResponse.parseFrom(response.getData());
+
+                if(chainMakerResponse.getContractResult().getCode() == ResultOuterClass.TxStatusCode.SUCCESS.getNumber()) {
+
+                    // 获取区块高度
+                    final CompletableFuture<Long> getContractListFuture = new CompletableFuture<Long>();
+                    context.getBlockManager().asyncGetBlockNumber(
+                            (blockNumberException, blockNumber) -> {
+                                if (Objects.nonNull(blockNumberException)) {
+                                    getContractListFuture.complete(0L);
+                                } else {
+                                    getContractListFuture.complete(blockNumber);
+                                }
+                            }
+                    );
+                    long blockNum = 0;
+                    try {
+                        blockNum = getContractListFuture.get();
+                    } catch (Exception e) {
+                        blockNum = 0;
+                    }
+
+                    TransactionResponse transactionResponse = new TransactionResponse();
+                    transactionResponse.setErrorCode(ResultOuterClass.TxStatusCode.SUCCESS.getNumber());
+                    transactionResponse.setHash(chainMakerResponse.getTxId());
+                    transactionResponse.setBlockNumber(blockNum);
+                    transactionResponse.setMessage(chainMakerResponse.getContractResult().getMessage());
+                    String output = Hex.toHexString(
+                                    chainMakerResponse
+                                            .getContractResult()
+                                            .getResult()
+                                            .toByteArray())
+                            .substring(128);
+                    String decodeOutput = FunctionUtility.decodeOutputAsString(output);
+                    List<String> result = new ArrayList<>();
+                    if (Objects.isNull(decodeOutput) || decodeOutput.isEmpty()) {
+                        result.add(String.format("%s invoke successfully.", request.getMethod()));
+                    } else {
+                        result.add(decodeOutput);
+                    }
+                    transactionResponse.setResult(result.stream().toArray(String[]::new));
+                    callback.onTransactionResponse(null, transactionResponse);
+                } else {
+                    logger.warn("invoking contract was failure. resultCode: {}, txId: {}",
+                            chainMakerResponse.getContractResult().getCode(),
+                            chainMakerResponse.getTxId());
+                    callback.onTransactionResponse(
+                            new TransactionException(
+                                    ChainMakerStatusCode.HandleSendTransactionFailed,
+                                    String.format("{contractResultCode: %d, contractResult: %s, txId: %s}",
+                                            chainMakerResponse.getContractResult().getCode(),
+                                            chainMakerResponse.getContractResult().getResult().toString(),
+                                            chainMakerResponse.getTxId())),
+                            null
+                    );
+                }
+
+            } catch (InvalidProtocolBufferException e) {
+                logger.warn("loading chainmaker's response was failure. {}", e.getMessage());
+                callback.onTransactionResponse(
+                        new TransactionException(
+                                ChainMakerStatusCode.HandleSendTransactionFailed,
+                                e.getMessage()),
+                        null
+                );
+            }
+        }
+    }
+
+    private List<ABIDefinition> getABIFunctions(
+            String abiPath,
+            String abiFileName,
+            String method) throws IOException, WeCrossException {
+        String contractABIContent = ConfigUtils.getContractABI(abiPath, abiFileName);
+        if(contractABIContent.isEmpty()) {
+            logger.error("{}/{}'s abi content is empty.", abiPath, abiFileName);
+            return null;
+        }
+        ABIDefinitionFactory abiDefinitionFactory = new ABIDefinitionFactory();
+        ContractABIDefinition contractABIDefinition = abiDefinitionFactory.loadABI(contractABIContent);
+        List<ABIDefinition> abiDefinitions = contractABIDefinition
+                .getFunctions()
+                .get(method);
+
+        return abiDefinitions;
+    }
+
+    private String encodeFunctionArgs(ABIDefinition abiFunction, String[] args) throws IOException {
+        String encodedArgs = "";
+        ABIObject inputObj =
+                ABIObjectFactory.createInputObject(abiFunction);
+        if(!Objects.isNull(args)) {
+            ABIObject encodeObj = abiCodecJsonWrapper.encode(inputObj, Arrays.asList(args));
+            encodedArgs = encodeObj.encode();
+        }
+        return encodedArgs;
     }
 
     @Override

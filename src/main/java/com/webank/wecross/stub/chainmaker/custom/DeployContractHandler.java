@@ -88,7 +88,7 @@ public class DeployContractHandler implements CommandHandler {
         }
 
         TransactionRequest transactionRequest = new TransactionRequest(
-                ChainMakerConstant.CUSTOM_COMMAND_DEPLOY,
+                ChainMakerConstant.CUSTOM_COMMAND_DEPLOY_CONTRACT,
                 requestArgs.stream().toArray(String[]::new));
 
         Map<String, Object> options = new HashMap<>();

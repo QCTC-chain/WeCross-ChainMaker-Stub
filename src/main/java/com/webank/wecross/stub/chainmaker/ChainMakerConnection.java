@@ -32,6 +32,7 @@ public class ChainMakerConnection implements Connection {
     private Logger logger = LoggerFactory.getLogger(ChainMakerConnection.class);
     private static final long RPC_CALL_TIMEOUT = 5000;
     private ChainClient chainClient;
+    private String configPath;
 
     private Map<String, String> properties = new HashMap<>();
 
@@ -43,6 +44,14 @@ public class ChainMakerConnection implements Connection {
 
     public ChainClient getChainClient() {
         return this.chainClient;
+    }
+
+    public void setConfigPath(String configPath) {
+        this.configPath = configPath;
+    }
+
+    public String getConfigPath() {
+        return this.configPath;
     }
 
     @Override
@@ -216,7 +225,30 @@ public class ChainMakerConnection implements Connection {
     }
 
     private void handleAsyncTransactionRequest(Request request, Callback callback) {
-
+        Response response = new Response();
+        try {
+            Map<String, byte[]> params = new HashMap<>();
+            byte[] requestBytes = request.getData();
+            String method = String.valueOf(requestBytes).substring(0, 10);
+            params.put("data", requestBytes);
+            ResultOuterClass.TxResponse chainMakerResponse = chainClient.invokeContract(
+                    ChainMakerConstant.CHAINMAKER_PROXY_NAME,
+                    method,
+                    null,
+                    params,
+                    RPC_CALL_TIMEOUT,
+                    RPC_CALL_TIMEOUT
+            );
+            response.setErrorCode(ChainMakerStatusCode.Success);
+            response.setData(chainMakerResponse.toByteArray());
+        } catch (ChainClientException ec) {
+            response.setErrorCode(ChainMakerStatusCode.HandleSendTransactionFailed);
+            response.setErrorMessage(ec.getMessage());
+        } catch (ChainMakerCryptoSuiteException ec) {
+            response.setErrorCode(ChainMakerStatusCode.HandleSendTransactionFailed);
+            response.setErrorMessage(ec.getMessage());
+        }
+        callback.onResponse(response);
     }
 
     private void handleGetContractListRequest(Request request, Callback callback) {

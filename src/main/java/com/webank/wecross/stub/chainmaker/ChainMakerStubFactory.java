@@ -52,7 +52,7 @@ public class ChainMakerStubFactory implements StubFactory {
         deployContractHandler.setDriver(driver);
 
         CommandHandlerDispatcher commandHandlerDispatcher = new CommandHandlerDispatcher();
-        commandHandlerDispatcher.registerCommandHandler(ChainMakerConstant.CUSTOM_COMMAND_DEPLOY, deployContractHandler);
+        commandHandlerDispatcher.registerCommandHandler(ChainMakerConstant.CUSTOM_COMMAND_DEPLOY_CONTRACT, deployContractHandler);
 
 
         driver.setCommandHandlerDispatcher(commandHandlerDispatcher);
@@ -66,7 +66,8 @@ public class ChainMakerStubFactory implements StubFactory {
             logger.info("New connection: {}", path);
             stubConfigPath = path;
             ChainMakerConnection connection = ChainMakerConnectionFactory.build(stubConfigPath, "sdk_config.yml");
-            
+            connection.setConfigPath(stubConfigPath);
+
             // check proxy contract
             if(connection.hasProxyDeployed() == false) {
                 String errorMsg = "WeCrossProxy error: WeCrossProxy contract has not been deployed!";
