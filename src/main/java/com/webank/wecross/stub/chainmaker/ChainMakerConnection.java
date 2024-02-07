@@ -242,10 +242,10 @@ public class ChainMakerConnection implements Connection {
             response.setErrorCode(ChainMakerStatusCode.Success);
             response.setData(chainMakerResponse.toByteArray());
         } catch (ChainClientException ec) {
-            response.setErrorCode(ChainMakerStatusCode.HandleSendTransactionFailed);
+            response.setErrorCode(ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed);
             response.setErrorMessage(ec.getMessage());
         } catch (ChainMakerCryptoSuiteException ec) {
-            response.setErrorCode(ChainMakerStatusCode.HandleSendTransactionFailed);
+            response.setErrorCode(ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed);
             response.setErrorMessage(ec.getMessage());
         }
         callback.onResponse(response);

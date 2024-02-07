@@ -29,23 +29,16 @@ import org.chainmaker.sdk.utils.UtilsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.web3j.abi.FunctionEncoder;
-import org.web3j.abi.FunctionReturnDecoder;
-import org.web3j.abi.TypeReference;
 import org.web3j.abi.datatypes.*;
-import org.web3j.abi.datatypes.generated.Uint256;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 public class ChainMakerDriver implements Driver {
     private static final Logger logger = LoggerFactory.getLogger(ChainMakerDriver.class);
     private CommandHandlerDispatcher commandHandlerDispatcher;
-
-    private ObjectMapper objectMapper = ObjectMapperFactory.getObjectMapper();
 
     private ABICodecJsonWrapper abiCodecJsonWrapper = new ABICodecJsonWrapper();
 
@@ -215,8 +208,9 @@ public class ChainMakerDriver implements Driver {
         } catch (Exception e) {
             callback.onTransactionResponse(
                     new TransactionException(
-                            ChainMakerStatusCode.HandleSendTransactionFailed,
-                            e.getMessage()),
+                            ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
+                            String.format("Handling ABI definition was failure when invoking asyncCall. method: %s",
+                                    request.getMethod())),
                     null
             );
             return;
@@ -252,11 +246,11 @@ public class ChainMakerDriver implements Driver {
                     request.getMethod());
             encodedArgs = encodeFunctionArgs(abiDefinitions.get(0), request.getArgs());
         } catch (Exception e) {
-            logger.warn("Handling ABI definitions was failure. {}", e.getMessage());
             callback.onTransactionResponse(
                     new TransactionException(
-                            ChainMakerStatusCode.HandleSendTransactionFailed,
-                            e.getMessage()),
+                            ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
+                            String.format("Handling ABI definitions was failure when invoking asyncSendTransaction. method: %s",
+                                    request.getMethod())),
                     null
             );
             return;
@@ -317,7 +311,7 @@ public class ChainMakerDriver implements Driver {
                     response.getErrorMessage());
             callback.onTransactionResponse(
                     new TransactionException(
-                            ChainMakerStatusCode.HandleSendTransactionFailed,
+                            ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
                             response.getErrorMessage()),
                     null
             );
@@ -372,7 +366,7 @@ public class ChainMakerDriver implements Driver {
                             chainMakerResponse.getTxId());
                     callback.onTransactionResponse(
                             new TransactionException(
-                                    ChainMakerStatusCode.HandleSendTransactionFailed,
+                                    ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
                                     String.format("{contractResultCode: %d, contractResult: %s, txId: %s}",
                                             chainMakerResponse.getContractResult().getCode(),
                                             chainMakerResponse.getContractResult().getResult().toString(),
@@ -385,8 +379,8 @@ public class ChainMakerDriver implements Driver {
                 logger.warn("loading chainmaker's response was failure. {}", e.getMessage());
                 callback.onTransactionResponse(
                         new TransactionException(
-                                ChainMakerStatusCode.HandleSendTransactionFailed,
-                                e.getMessage()),
+                                ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
+                                String.format("loading chainmaker's response was failure.")),
                         null
                 );
             }
@@ -497,7 +491,8 @@ public class ChainMakerDriver implements Driver {
                     callback.onResponse(new Exception(response.getErrorMessage()), null);
                 } else {
                     try {
-                        ChainmakerTransaction.Transaction chainMakerTransaction = ChainmakerTransaction.Transaction.parseFrom(response.getData());
+                        ChainmakerTransaction.Transaction chainMakerTransaction = ChainmakerTransaction
+                                .Transaction.parseFrom(response.getData());
                         Transaction transaction = BlockUtility.convertToTransaction(chainMakerTransaction);
                         callback.onResponse(null, transaction);
                     } catch (InvalidProtocolBufferException ec) {

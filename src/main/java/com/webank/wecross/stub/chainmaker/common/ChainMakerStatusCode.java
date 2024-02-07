@@ -4,7 +4,7 @@ public class ChainMakerStatusCode {
     public static final int Success = 0;
     public static final int HandleGetBlockNumberFailed = 2023;
     public static final int HandleGetBlockFailed = 2024;
-    public static final int HandleSendTransactionFailed = 2025;
+    public static final int HandleInvokeWeCrossProxyFailed = 2025;
 
     public static final int MethodNotExist = 2026;
     public static final int HandleDeployContract = 3000;
