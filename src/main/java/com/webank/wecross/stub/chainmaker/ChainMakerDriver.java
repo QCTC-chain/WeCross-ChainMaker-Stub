@@ -92,8 +92,9 @@ public class ChainMakerDriver implements Driver {
         logger.info("asyncSendTransaction. path: {}, context: {}, request: {}", path, context, request);
 
         if(method.equals(ChainMakerConstant.CUSTOM_COMMAND_DEPLOY_CONTRACT)) {
-            // 部署合约
+            // 部署用户合约
             deployWeCrossCustomerContract(context, request, connection, callback);
+
         } else {
             invokeSendTransaction(context, request, connection, callback);
         }
@@ -146,7 +147,6 @@ public class ChainMakerDriver implements Driver {
                             );
                         } else {
                             try {
-
                                 ResultOuterClass.ContractResult contractResult = ResultOuterClass
                                         .ContractResult.parseFrom(response.getData());
                                 TransactionResponse transactionResponse = new TransactionResponse();
