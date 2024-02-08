@@ -93,14 +93,17 @@ public class ChainMakerDriver implements Driver {
 
         if(method.equals(ChainMakerConstant.CUSTOM_COMMAND_DEPLOY_CONTRACT)) {
             // 部署用户合约
-            deployWeCrossCustomerContract(context, request, connection, callback);
-
-        } else {
+            deployWeCrossCustomerContract(true, context, request, connection, callback);
+        } else if (method.equals(ChainMakerConstant.CUSTOM_COMMAND_UPGRADE_CONTRACT)) {
+            // 升级用户合约
+            deployWeCrossCustomerContract(false, context, request, connection, callback);
+        }else {
             invokeSendTransaction(context, request, connection, callback);
         }
     }
 
     private void deployWeCrossCustomerContract(
+            boolean deploy,
             TransactionContext context,
             TransactionRequest request,
             Connection connection,
@@ -116,17 +119,27 @@ public class ChainMakerDriver implements Driver {
         try {
             ConfigUtils.writeContractABI(chainMakerConnection.getConfigPath(), path.getResource(), contractABIContent);
 
-            org.chainmaker.pb.common.Request.Payload payload = chainMakerConnection
-                    .getChainClient()
-                    .createContractCreatePayload(
-                            contractName,
-                            version,
-                            contractBinary, ContractOuterClass.RuntimeType.EVM, null);
+            org.chainmaker.pb.common.Request.Payload payload = null;
+            if(deploy) {
+                payload = chainMakerConnection
+                        .getChainClient()
+                        .createContractCreatePayload(
+                                contractName,
+                                version,
+                                contractBinary, ContractOuterClass.RuntimeType.EVM, null);
+            } else {
+                payload = chainMakerConnection
+                        .getChainClient()
+                        .createContractUpgradePayload(
+                                contractName,
+                                version,
+                                contractBinary, ContractOuterClass.RuntimeType.EVM, null);
+            }
             org.chainmaker.pb.common.Request.EndorsementEntry[] endorsementEntries = SdkUtils.getEndorsers(
                     payload, users.stream().toArray(User[]::new));
 
             Request weCrossRequest = Request.newRequest(
-                    ChainMakerRequestType.CREATE_CUSTOMER_CONTRACT,
+                    deploy ? ChainMakerRequestType.CREATE_CUSTOMER_CONTRACT : ChainMakerRequestType.UPGRADE_CUSTOMER_CONTRACT,
                     payload.toByteArray());
             ResourceInfo resourceInfo = new ResourceInfo();
             resourceInfo.setName(context.getPath().getResource());
@@ -205,27 +218,43 @@ public class ChainMakerDriver implements Driver {
                     path.getResource(),
                     request.getMethod());
             encodedArgs = encodeFunctionArgs(abiDefinitions.get(0), request.getArgs());
-        } catch (Exception e) {
+        } catch (IOException e) {
             callback.onTransactionResponse(
                     new TransactionException(
                             ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
-                            String.format("Handling ABI definition was failure when invoking asyncCall. method: %s",
-                                    request.getMethod())),
+                            e.getMessage()),
+                    null
+            );
+            return;
+        } catch (WeCrossException e) {
+            callback.onTransactionResponse(
+                    new TransactionException(
+                            ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
+                            e.getMessage()),
                     null
             );
             return;
         }
 
         String transactionID = (String)request.getOptions().get(StubConstant.XA_TRANSACTION_ID);
-        if (Objects.isNull(transactionID)) {
-            transactionID = "";
+        Function function = null;
+        if (Objects.isNull(transactionID)
+                || transactionID.isEmpty()
+                || "0".equals(transactionID)) {
+            function = FunctionUtility.newConstantCallProxyFunction(
+                    path.getResource(),
+                    abiDefinitions.get(0).getMethodSignatureAsString(),
+                    encodedArgs
+            );
+        } else {
+            function = FunctionUtility.newConstantCallProxyFunction(
+                    transactionID,
+                    path.toString(),
+                    abiDefinitions.get(0).getMethodSignatureAsString(),
+                    encodedArgs
+            );
         }
-        Function function = FunctionUtility.newConstantCallProxyFunction(
-                transactionID,
-                path.toString(),
-                abiDefinitions.get(0).getMethodSignatureAsString(),
-                encodedArgs
-        );
+
         invokeWeCrossProxy(context, request, connection, function, callback);
     }
 
@@ -245,14 +274,20 @@ public class ChainMakerDriver implements Driver {
                     path.getResource(),
                     request.getMethod());
             encodedArgs = encodeFunctionArgs(abiDefinitions.get(0), request.getArgs());
-        } catch (Exception e) {
+        } catch (IOException e) {
             callback.onTransactionResponse(
                     new TransactionException(
                             ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
-                            String.format("Handling ABI definitions was failure when invoking asyncSendTransaction. method: %s",
-                                    request.getMethod())),
+                            e.getMessage()),
                     null
             );
+            return;
+        } catch (WeCrossException e) {
+            callback.onTransactionResponse(
+                    new TransactionException(
+                            ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
+                            e.getMessage()),
+                    null);
             return;
         }
 
@@ -262,19 +297,28 @@ public class ChainMakerDriver implements Driver {
         Long transactionSeq =(Long)request.getOptions().get(StubConstant.XA_TRANSACTION_SEQ);
         Long seq = Objects.isNull(transactionSeq) ? 0 : transactionSeq;
 
-        if (Objects.isNull(transactionID)) {
-            transactionID = "";
+        Function function = null;
+        if (Objects.isNull(transactionID)
+                || transactionID.isEmpty()
+                || "0".equals(transactionID)) {
+            function = FunctionUtility
+                    .newSendTransactionProxyFunction(
+                            uid,
+                            path.getResource(),
+                            abiDefinitions.get(0).getMethodSignatureAsString(),
+                            encodedArgs
+
+                    );
+        } else {
+            function = FunctionUtility
+                    .newSendTransactionProxyFunction(
+                            uid,
+                            transactionID,
+                            seq,
+                            path.toString(),
+                            abiDefinitions.get(0).getMethodSignatureAsString(),
+                            encodedArgs);
         }
-
-        Function function = FunctionUtility
-                .newSendTransactionProxyFunction(
-                        uid,
-                        transactionID,
-                        seq,
-                        path.toString(),
-                        abiDefinitions.get(0).getMethodSignatureAsString(),
-                        encodedArgs);
-
         invokeWeCrossProxy(context, request, connection, function, callback);
     }
 
@@ -369,7 +413,7 @@ public class ChainMakerDriver implements Driver {
                                     ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
                                     String.format("{contractResultCode: %d, contractResult: %s, txId: %s}",
                                             chainMakerResponse.getContractResult().getCode(),
-                                            chainMakerResponse.getContractResult().getResult().toString(),
+                                            chainMakerResponse.getContractResult().getMessage(),
                                             chainMakerResponse.getTxId())),
                             null
                     );
@@ -518,7 +562,20 @@ public class ChainMakerDriver implements Driver {
             callback.onResponse(new Exception("Command not found, command: " + command), null);
             return;
         }
-        commandHandler.handle(path, args, account, blockManager, connection, callback);
+
+        // 最后一个参数为 command
+        List<Object> listArgs = new ArrayList<>();
+        for(Object arg : args) {
+            listArgs.add(arg);
+        }
+        listArgs.add(command);
+        commandHandler.handle(
+                path,
+                listArgs.stream().toArray(String[]::new),
+                account,
+                blockManager,
+                connection,
+                callback);
     }
 
     @Override

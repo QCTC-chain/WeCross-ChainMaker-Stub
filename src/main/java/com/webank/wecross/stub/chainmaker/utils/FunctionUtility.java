@@ -31,6 +31,12 @@ public class FunctionUtility {
     public static final int MethodIDLength = 8;
     public static final int MethodIDWithHexPrefixLength = MethodIDLength + 2;
 
+    private static String buildMethodId(final String methodSignature) {
+        final byte[] input = methodSignature.getBytes();
+        final byte[] hash = Hash.sha3(input);
+        return Numeric.toHexString(hash).substring(0, 10);
+    }
+
     /**
      * WeCrossProxy constantCall function <br>
      * </>function sendTransaction(string memory _name, bytes memory _argsWithMethodId) public
@@ -52,6 +58,54 @@ public class FunctionUtility {
                                 new Utf8String(path),
                                 new Utf8String(methodSignature),
                                 new DynamicBytes(Numeric.hexStringToByteArray(abi))),
+                        Collections.<TypeReference<?>>emptyList());
+        return function;
+    }
+
+    /**
+     * WeCrossProxy constantCall function function sendTransaction(string memory _name, bytes memory
+     * _argsWithMethodId) public returns(bytes memory)
+     *
+     * @param name
+     * @param methodSignature
+     * @param abi
+     * @return
+     */
+    public static Function newConstantCallProxyFunction( String name, String methodSignature, String abi) {
+        String methodId = buildMethodId(methodSignature);
+        Function function =
+                new Function(
+                        "constantCall",
+                        Arrays.<Type>asList(
+                                new Utf8String(name),
+                                new DynamicBytes(Numeric.hexStringToByteArray(methodId + abi))),
+                        Collections.<TypeReference<?>>emptyList());
+        return function;
+    }
+
+    /**
+     * WeCrossProxy sendTransaction function function sendTransaction(string memory _name, bytes
+     * memory _argsWithMethodId) public returns(bytes memory)
+     *
+     * @param uid
+     * @param name
+     * @param methodSignature
+     * @param abi
+     * @return
+     */
+    public static Function newSendTransactionProxyFunction(
+            String uid,
+            String name,
+            String methodSignature,
+            String abi) {
+        String methodId = buildMethodId(methodSignature);
+        Function function =
+                new Function(
+                        "sendTransaction",
+                        Arrays.<Type>asList(
+                                new Utf8String(uid),
+                                new Utf8String(name),
+                                new DynamicBytes(Numeric.hexStringToByteArray(methodId + abi))),
                         Collections.<TypeReference<?>>emptyList());
         return function;
     }

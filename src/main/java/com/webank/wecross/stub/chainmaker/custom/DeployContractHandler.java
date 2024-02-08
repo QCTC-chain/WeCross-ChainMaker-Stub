@@ -83,12 +83,14 @@ public class DeployContractHandler implements CommandHandler {
                 blockManager);
 
         List<String> requestArgs = new ArrayList<>();
-        for(Object arg: args) {
+        String method = (String) args[args.length - 1];
+        Object[] newArgs = Arrays.copyOf(args, args.length - 1);
+        for(Object arg: newArgs) {
             requestArgs.add((String)arg);
         }
 
         TransactionRequest transactionRequest = new TransactionRequest(
-                ChainMakerConstant.CUSTOM_COMMAND_DEPLOY_CONTRACT,
+                method,
                 requestArgs.stream().toArray(String[]::new));
 
         Map<String, Object> options = new HashMap<>();

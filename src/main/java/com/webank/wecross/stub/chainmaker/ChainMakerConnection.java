@@ -68,7 +68,8 @@ public class ChainMakerConnection implements Connection {
             handleAsyncTransactionRequest(request, callback);
         } else if (request.getType() == ChainMakerRequestType.GET_CONTRACT_LIST) {
             handleGetContractListRequest(request, callback);
-        } else if (request.getType() == ChainMakerRequestType.CREATE_CUSTOMER_CONTRACT) {
+        } else if (request.getType() == ChainMakerRequestType.CREATE_CUSTOMER_CONTRACT
+            || request.getType() == ChainMakerRequestType.UPGRADE_CUSTOMER_CONTRACT) {
             handleCreateCustomerContractRequest(request, callback);
         }
     }
@@ -229,7 +230,9 @@ public class ChainMakerConnection implements Connection {
         try {
             Map<String, byte[]> params = new HashMap<>();
             byte[] requestBytes = request.getData();
-            String method = String.valueOf(requestBytes).substring(0, 10);
+            String method = new String(requestBytes, StandardCharsets.UTF_8);
+            method = method.substring(0, 10);
+            new String(requestBytes, StandardCharsets.UTF_8);
             params.put("data", requestBytes);
             ResultOuterClass.TxResponse chainMakerResponse = chainClient.invokeContract(
                     ChainMakerConstant.CHAINMAKER_PROXY_NAME,

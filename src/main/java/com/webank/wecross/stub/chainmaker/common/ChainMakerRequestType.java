@@ -9,4 +9,5 @@ public class ChainMakerRequestType {
     public static final int GET_TRANSACTION = 1005;
     public static final int GET_CONTRACT_LIST = 1006;
     public static final int CREATE_CUSTOMER_CONTRACT = 1007;
+    public static final int UPGRADE_CUSTOMER_CONTRACT = 1007;
 }

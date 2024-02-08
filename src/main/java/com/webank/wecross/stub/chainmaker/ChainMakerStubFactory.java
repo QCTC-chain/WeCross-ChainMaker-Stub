@@ -52,8 +52,12 @@ public class ChainMakerStubFactory implements StubFactory {
         deployContractHandler.setDriver(driver);
 
         CommandHandlerDispatcher commandHandlerDispatcher = new CommandHandlerDispatcher();
-        commandHandlerDispatcher.registerCommandHandler(ChainMakerConstant.CUSTOM_COMMAND_DEPLOY_CONTRACT, deployContractHandler);
-
+        commandHandlerDispatcher.registerCommandHandler(
+                ChainMakerConstant.CUSTOM_COMMAND_DEPLOY_CONTRACT,
+                deployContractHandler);
+        commandHandlerDispatcher.registerCommandHandler(
+                ChainMakerConstant.CUSTOM_COMMAND_UPGRADE_CONTRACT,
+                deployContractHandler);
 
         driver.setCommandHandlerDispatcher(commandHandlerDispatcher);
 

@@ -32,7 +32,7 @@ public class ConfigUtils {
             filePath = classpath2Absolute(filePath);
         }
 
-        filePath += File.separator + "contract" + File.separator + fileName;
+        filePath += File.separator + fileName;
         Path path = Paths.get(filePath);
         if (!Files.exists(path)) {
             Files.createDirectories(path);
@@ -48,7 +48,7 @@ public class ConfigUtils {
             filePath = classpath2Absolute(filePath);
         }
 
-        filePath += File.separator + "contract" + File.separator + fileName;
+        filePath +=  File.separator + fileName;
         String content = new String(Files.readAllBytes(Paths.get(filePath + File.separator + fileName + ".abi")));
         return content;
     }
