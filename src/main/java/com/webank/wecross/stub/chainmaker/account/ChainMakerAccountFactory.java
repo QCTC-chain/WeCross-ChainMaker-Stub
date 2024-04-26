@@ -26,7 +26,7 @@ public class ChainMakerAccountFactory {
         String name = properties.get("username");
 
         if(authType.equals(AuthType.PermissionedWithKey.getMsg()) || authType.equals(AuthType.Public.getMsg())) {
-            String privateKeyStr = properties.get("privateKey");
+            String privateKeyStr = properties.get("userKey");
             try {
                 user = new User(orgId);
                 PrivateKey privateKey = CryptoUtils.getPrivateKeyFromBytes(privateKeyStr.getBytes());
