@@ -21,6 +21,7 @@ public class ChainMakerAccountFactory {
     public static ChainMakerAccount build(Map<String, String> properties) {
         User user = null;
 
+        String accountType = properties.get("type");
         String authType = properties.get("authType");
         String orgId = properties.get("orgId");
         String name = properties.get("username");
@@ -68,6 +69,6 @@ public class ChainMakerAccountFactory {
             }
         }
         user.setAuthType(authType);
-        return new ChainMakerAccount(user, name);
+        return new ChainMakerAccount(user, name, accountType);
     }
 }

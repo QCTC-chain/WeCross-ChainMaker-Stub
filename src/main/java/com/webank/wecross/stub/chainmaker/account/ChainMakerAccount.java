@@ -18,10 +18,12 @@ public class ChainMakerAccount implements Account {
 
     private final User user;
     private final String name;
+    private final String type;
 
-    public ChainMakerAccount(User user, String name) {
+    public ChainMakerAccount(User user, String name, String type) {
         this.user = user;
         this.name = name;
+        this.type = type;
     }
 
     @Override
@@ -31,12 +33,7 @@ public class ChainMakerAccount implements Account {
 
     @Override
     public String getType() {
-        String authType = this.user.getAuthType();
-        if(authType.equals(AuthType.PermissionedWithCert.getMsg())) {
-            return "chainmaker";
-        } else {
-            return "chainmaker-public";
-        }
+        return this.type;
     }
 
     @Override

@@ -1,6 +1,7 @@
 [common]
     name = 'chainmaker'
-    type = 'chainmaker'
+    # ChainMakerWithCert/ChainMakerGMWithCert/ChainMakerWithPublic/ChainMakerGMWithPublic
+    type = 'chainmakerWithCert'
 
 [endorsement]
     entries = ['qctc003-org-id-001', 'qctc003-org-id-002', 'qctc003-org-id-003']

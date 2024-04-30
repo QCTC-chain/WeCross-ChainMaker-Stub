@@ -1,13 +1,11 @@
 package com.webank.wecross.stub.chainmaker;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.webank.wecross.stub.Account;
 import com.webank.wecross.stub.Connection;
 import com.webank.wecross.stub.Driver;
-import com.webank.wecross.stub.Stub;
 import com.webank.wecross.stub.StubFactory;
 import com.webank.wecross.stub.WeCrossContext;
 import com.webank.wecross.stub.chainmaker.account.ChainMakerAccountFactory;
@@ -18,24 +16,22 @@ import com.webank.wecross.stub.chainmaker.custom.DeployContractHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-@Stub("chainmaker")
+
 public class ChainMakerStubFactory implements StubFactory {
     private Logger logger = LoggerFactory.getLogger(ChainMakerStubFactory.class);
 
     private String stubConfigPath = "";
+    private String stubType = "";
 
-    public static void main(String[] args) throws Exception {
-        System.out.println("This is chainmaker Stub Plugin. Please copy this file to router/plugin/");
+    public ChainMakerStubFactory(String subType) {
+        this.stubType = subType;
     }
 
     @Override
     public void init(WeCrossContext context) {
-        logger.info("init chainmaker stub factory");
+        logger.info("init ChainMaker stub factory");
     }
 
     @Override
@@ -103,6 +99,8 @@ public class ChainMakerStubFactory implements StubFactory {
             chainMakerProperties.put("userCert", (String) properties.get("pubKey"));
             chainMakerProperties.put("username", (String) properties.get("username"));
             chainMakerProperties.put("type", (String) properties.get("type"));
+
+            assert(chainMakerProperties.get("type").equals(this.stubType));
 
             logger.info("newAccount, properties: {}", chainMakerProperties);
 
