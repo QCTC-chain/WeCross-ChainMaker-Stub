@@ -44,14 +44,17 @@ public class ChainMakerStubConfigParser extends AbstractConfigParser {
 
         List<String> entries = (List<String>) endorsement.get("entries");
         for(String orgId: entries) {
-            Map<String, Object> paths = (Map<String, Object>)stubConfig.get(orgId);
-            EndorsementEntry entry = new EndorsementEntry();
-            entry.setOrgId(orgId);
-            entry.setUserKeyFilePath((String)paths.get("user_key_file_path"));
-            entry.setUserCrtFilePath((String)paths.get("user_crt_file_path"));
-            entry.setUserSignKeyFilePath((String)paths.get("user_sign_key_file_path"));
-            entry.setUserSignCrtFilePath((String)paths.get("user_sign_crt_file_path"));
-            endorsementEntries.add(entry);
+            List<Map<String, Object>> paths = (List<Map<String, Object>>)stubConfig.get(orgId);
+            for(Map<String, Object> path: paths) {
+                EndorsementEntry entry = new EndorsementEntry();
+                entry.setOrgId(orgId);
+                entry.setUserKeyFilePath((String)path.get("user_key_file_path"));
+                entry.setUserCrtFilePath((String)path.get("user_crt_file_path"));
+                entry.setUserSignKeyFilePath((String)path.get("user_sign_key_file_path"));
+                entry.setUserSignCrtFilePath((String)path.get("user_sign_crt_file_path"));
+                endorsementEntries.add(entry);
+            }
+
         }
         return endorsementEntries;
     }

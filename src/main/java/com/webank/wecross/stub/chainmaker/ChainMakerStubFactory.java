@@ -13,9 +13,15 @@ import com.webank.wecross.stub.chainmaker.account.ChainMakerAccountFactory;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.custom.CommandHandlerDispatcher;
 import com.webank.wecross.stub.chainmaker.custom.DeployContractHandler;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 
@@ -27,6 +33,10 @@ public class ChainMakerStubFactory implements StubFactory {
 
     public ChainMakerStubFactory(String subType) {
         this.stubType = subType;
+    }
+
+    public String getStubType() {
+        return stubType;
     }
 
     @Override
@@ -116,8 +126,156 @@ public class ChainMakerStubFactory implements StubFactory {
         logger.info("generateAccount, path: {}, args: {}", path, args);
     }
 
+    private String[] getOrgIds(String path) {
+        String[] orgIds = null;
+        File sdkConfigPath = new File(path + File.separator + "crypto-config");
+        if (sdkConfigPath.isDirectory()) {
+            orgIds = sdkConfigPath.list();
+        }
+        return orgIds;
+    }
+
+    private File[] getOrgIdPaths(File path) {
+        File[] orgIdPaths = null;
+        if (path.isDirectory()) {
+            orgIdPaths = path.listFiles();
+        }
+        return orgIdPaths;
+    }
+
+    private File[] getUserPaths(File path) {
+        File[] userPaths = null;
+        if(path.isDirectory()) {
+            userPaths = new File(path.getPath() + File.separator + "user").listFiles();
+        }
+        return userPaths;
+    }
+
+    private File getSignCertFilePath(File path) {
+        return path.listFiles((dir, name) -> name.contains("sign.crt"))[0];
+    }
+
+    private File getSignKeyFilePath(File path) {
+        return path.listFiles((dir, name) -> name.contains("sign.key"))[0];
+    }
+
+    private File getTLSCertFilePath(File path) {
+        return path.listFiles((dir, name) -> name.contains("tls.crt"))[0];
+    }
+
+    private File getTLSKeyFilePath(File path) {
+        return path.listFiles((dir, name) -> name.contains("tls.key"))[0];
+    }
+
+    private String generateStubTomlConfig(String path) {
+        File basePath = new File(path);
+        String chainName = basePath.getName();
+        String entries = "";
+        String endorsement = "";
+        String accountTemplate =
+                "[common]\n"
+                        + "    name = '"
+                        + chainName
+                        + "'\n"
+                        + "    type = '"
+                        + getStubType()
+                        + "\n"
+                        + "[endorsement]\n"
+                        + "    entries = [%s]\n"
+                        + "\n"
+                        + "%s\n"
+                        + "\n";
+        File sdkConfigPath = new File(
+                basePath + File.separator + "crypto-config");
+        File[] orgIds = getOrgIdPaths(sdkConfigPath);
+        if(orgIds == null) {
+            return "";
+        }
+
+        int lastIndex = 0;
+        for(File orgId: orgIds) {
+            entries += "'" + orgId.getName() + "'";
+            if(++lastIndex != orgIds.length) {
+                entries += ",";
+            }
+
+            endorsement += "[[" + orgId.getName() + "]]\n";
+            File[] users = getUserPaths(orgId);
+            if(users == null) {
+                return "";
+            }
+            for(File user: users) {
+                String userName = user.getName();
+                File signCertFilePath = getSignCertFilePath(user);
+                File signKeyFilePath = getSignKeyFilePath(user);
+                File tlsCertFilePath = getTLSCertFilePath(user);
+                File tlsKeyFilePath = getTLSKeyFilePath(user);
+                endorsement +=
+                        "    userName = '" + userName + "'\n"
+                                + "    user_key_file_path = '" + tlsKeyFilePath.getPath().substring(basePath.getPath().length() + 1) + "'\n"
+                                + "    user_crt_file_path = '" + tlsCertFilePath.getPath().substring(basePath.getPath().length() + 1) + "'\n"
+                                + "    user_sign_key_file_path = '" + signKeyFilePath.getPath().substring(basePath.getPath().length() + 1) + "'\n"
+                                + "    user_sign_crt_file_path = '" + signCertFilePath.getPath().substring(basePath.getPath().length() + 1) + "'\n"
+                                + "\n";
+            }
+        }
+        String stubContent = String.format(accountTemplate, entries, endorsement);
+        return stubContent;
+    }
+
     @Override
     public void generateConnection(String path, String[] args) {
-        logger.info("generateConnection, path: {}, args: {}", path, args);
+        try {
+            File basePath = new File(path);
+            String chainName = basePath.getName();
+            String stubContent = generateStubTomlConfig(path);
+            String confFilePath = path + File.separator + "stub.toml";
+            File confFile = new File(confFilePath);
+            if (!confFile.createNewFile()) {
+                logger.error("Conf file exists! {}", confFile);
+                return;
+            }
+
+            FileWriter fileWriter = new FileWriter(confFile);
+            try {
+                fileWriter.write(stubContent);
+            } finally {
+                fileWriter.close();
+            }
+
+            generateProxyContract(path);
+            generateHubContract(path);
+
+            System.out.println(
+                    "SUCCESS: Chain \""
+                            + chainName
+                            + "\" config framework has been generated to \""
+                            + path
+                            + "\"");
+        } catch (Exception e) {
+            logger.error("Exception: ", e);
+        }
+    }
+    private void generateProxyContract(String path) {
+        try {
+            String proxyPath = "WeCrossProxy.sol";
+            URL proxyDir = getClass().getResource( File.separator + "contract" + File.separator + proxyPath);
+            File dest =
+                    new File(path + File.separator + "WeCrossProxy" + File.separator + proxyPath);
+            FileUtils.copyURLToFile(proxyDir, dest);
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+    }
+
+    private void generateHubContract(String path) {
+        try {
+            String hubPath = "WeCrossHub.sol";
+            URL hubDir = getClass().getResource(File.separator + "contract" + File.separator + hubPath);
+            File dest = new File(path + File.separator + "WeCrossHub" + File.separator + hubPath);
+            FileUtils.copyURLToFile(hubDir, dest);
+        } catch (Exception e) {
+            System.out.println(e);
+        }
     }
 }
