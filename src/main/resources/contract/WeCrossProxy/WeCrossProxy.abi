@@ -1,0 +1,313 @@
+[
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_xaTransactionID",
+				"type": "string"
+			}
+		],
+		"name": "commitXATransaction",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_name",
+				"type": "string"
+			},
+			{
+				"internalType": "bytes",
+				"name": "_argsWithMethodId",
+				"type": "bytes"
+			}
+		],
+		"name": "constantCall",
+		"outputs": [
+			{
+				"internalType": "bytes",
+				"name": "",
+				"type": "bytes"
+			}
+		],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_XATransactionID",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_path",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_func",
+				"type": "string"
+			},
+			{
+				"internalType": "bytes",
+				"name": "_args",
+				"type": "bytes"
+			}
+		],
+		"name": "constantCall",
+		"outputs": [
+			{
+				"internalType": "bytes",
+				"name": "",
+				"type": "bytes"
+			}
+		],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_xaTransactionID",
+				"type": "string"
+			}
+		],
+		"name": "getXATransaction",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_index",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_size",
+				"type": "uint256"
+			}
+		],
+		"name": "listXATransactions",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_xaTransactionID",
+				"type": "string"
+			}
+		],
+		"name": "rollbackXATransaction",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_uid",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_name",
+				"type": "string"
+			},
+			{
+				"internalType": "bytes",
+				"name": "_argsWithMethodId",
+				"type": "bytes"
+			}
+		],
+		"name": "sendTransaction",
+		"outputs": [
+			{
+				"internalType": "bytes",
+				"name": "",
+				"type": "bytes"
+			}
+		],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_uid",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_XATransactionID",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_XATransactionSeq",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "_path",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_func",
+				"type": "string"
+			},
+			{
+				"internalType": "bytes",
+				"name": "_args",
+				"type": "bytes"
+			}
+		],
+		"name": "sendTransaction",
+		"outputs": [
+			{
+				"internalType": "bytes",
+				"name": "",
+				"type": "bytes"
+			}
+		],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_xaTransactionID",
+				"type": "string"
+			},
+			{
+				"internalType": "string[]",
+				"name": "_selfPaths",
+				"type": "string[]"
+			},
+			{
+				"internalType": "string[]",
+				"name": "_otherPaths",
+				"type": "string[]"
+			}
+		],
+		"name": "startXATransaction",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_str",
+				"type": "string"
+			}
+		],
+		"name": "stringToUint256",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "str",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "startIndex",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "endIndex",
+				"type": "uint256"
+			}
+		],
+		"name": "substring",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
+	}
+]

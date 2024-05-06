@@ -80,9 +80,10 @@ sourceSets {
             exclude '**/*.yml'
             exclude '**/*.crt'
             exclude '**/*.key'
-            include 'contract/WeCrossProxy.sol'
-            include 'contract/WeCrossHub.sol'
-            include 'WeCrossProxy.bin'
+            include 'contract/WeCrossProxy/WeCrossProxy.sol'
+            include 'contract/WeCrossProxy/WeCrossProxy.bin'
+            include 'contract/WeCrossHub/WeCrossHub.sol'
+            include 'contract/WeCrossHub/WeCrossHub.bin'
         }
     }
 

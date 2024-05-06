@@ -258,11 +258,20 @@ public class ChainMakerStubFactory implements StubFactory {
     }
     private void generateProxyContract(String path) {
         try {
-            String proxyPath = "WeCrossProxy.sol";
-            URL proxyDir = getClass().getResource( File.separator + "contract" + File.separator + proxyPath);
+            String proxySourcePath = "WeCrossProxy.sol";
+            URL proxyDir = getClass().getResource(
+                    File.separator + "contract/WeCrossProxy" + File.separator + proxySourcePath);
             File dest =
-                    new File(path + File.separator + "WeCrossProxy" + File.separator + proxyPath);
+                    new File(path + File.separator + "WeCrossProxy" + File.separator + proxySourcePath);
             FileUtils.copyURLToFile(proxyDir, dest);
+
+            String proxyBinPath = "WeCrossProxy.bin";
+            proxyDir = getClass().getResource(
+                    File.separator + "contract/WeCrossProxy" + File.separator + proxyBinPath);
+            dest =
+                    new File(path + File.separator + "WeCrossProxy" + File.separator + proxyBinPath);
+            FileUtils.copyURLToFile(proxyDir, dest);
+
         } catch (Exception e) {
             System.out.println(e);
         }
@@ -270,10 +279,16 @@ public class ChainMakerStubFactory implements StubFactory {
 
     private void generateHubContract(String path) {
         try {
-            String hubPath = "WeCrossHub.sol";
-            URL hubDir = getClass().getResource(File.separator + "contract" + File.separator + hubPath);
-            File dest = new File(path + File.separator + "WeCrossHub" + File.separator + hubPath);
+            String hubSourcePath = "WeCrossHub.sol";
+            URL hubDir = getClass().getResource(File.separator + "contract/WeCrossHub" + File.separator + hubSourcePath);
+            File dest = new File(path + File.separator + "WeCrossHub" + File.separator + hubSourcePath);
             FileUtils.copyURLToFile(hubDir, dest);
+
+            String hubBinPath = "WeCrossHub.bin";
+            hubDir = getClass().getResource(File.separator + "contract/WeCrossHub" + File.separator + hubBinPath);
+            dest = new File(path + File.separator + "WeCrossHub" + File.separator + hubBinPath);
+            FileUtils.copyURLToFile(hubDir, dest);
+
         } catch (Exception e) {
             System.out.println(e);
         }
