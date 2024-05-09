@@ -144,6 +144,8 @@ public class ChainMakerDriver implements Driver {
             ResourceInfo resourceInfo = new ResourceInfo();
             resourceInfo.setName(context.getPath().getResource());
             resourceInfo.getProperties().put(ChainMakerConstant.CHAINMAKER_ENDORSEMENTENTRY, endorsementEntries);
+            resourceInfo.getProperties().put(ChainMakerConstant.CHAINMAKER_CONTRACT_NAME, contractName);
+            resourceInfo.getProperties().put(ChainMakerConstant.CHAINMAKER_CONTRACT_VERSION, version);
             weCrossRequest.setResourceInfo(resourceInfo);
 
             chainMakerConnection.asyncSend(

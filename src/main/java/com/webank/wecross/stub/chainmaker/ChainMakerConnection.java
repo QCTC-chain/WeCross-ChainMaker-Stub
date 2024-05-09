@@ -1,7 +1,6 @@
 package com.webank.wecross.stub.chainmaker;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.sun.net.httpserver.Filter;
 import com.webank.wecross.stub.*;
 
 import com.webank.wecross.stub.chainmaker.common.BlockUtility;
@@ -13,9 +12,11 @@ import org.chainmaker.pb.common.ChainmakerBlock;
 import org.chainmaker.pb.common.ChainmakerTransaction;
 import org.chainmaker.pb.common.ContractOuterClass;
 import org.chainmaker.pb.common.ResultOuterClass;
+import org.chainmaker.pb.config.ChainConfigOuterClass;
 import org.chainmaker.sdk.ChainClient;
 import org.chainmaker.sdk.ChainClientException;
 import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
+import org.chainmaker.sdk.utils.CryptoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +34,7 @@ public class ChainMakerConnection implements Connection {
     private static final long RPC_CALL_TIMEOUT = 5000;
     private ChainClient chainClient;
     private String configPath;
+    private ConnectionEventHandler connectionEventHandler = null;
 
     private Map<String, String> properties = new HashMap<>();
 
@@ -76,7 +78,7 @@ public class ChainMakerConnection implements Connection {
 
     @Override
     public void setConnectionEventHandler(ConnectionEventHandler eventHandler) {
-
+        this.connectionEventHandler = eventHandler;
     }
 
     @Override
@@ -302,6 +304,28 @@ public class ChainMakerConnection implements Connection {
                         resourceInfo.getName(), weCrossResponse.getTxId());
                 response.setErrorCode(ChainMakerStatusCode.Success);
                 response.setData(weCrossResponse.getContractResult().toByteArray());
+
+                if(this.connectionEventHandler != null) {
+                    resourceInfo.setStubType(this.getProperties().get(ChainMakerConstant.CHAINMAKER_STUB_TYPE));
+                    Map<Object, Object> resourceProperties = new HashMap<>();
+                    resourceProperties.put(
+                            ChainMakerConstant.CHAINMAKER_CHAIN_ID,
+                            this.getProperties().get(ChainMakerConstant.CHAINMAKER_CHAIN_ID));
+                    String contractAddress = CryptoUtils.nameToAddrStr(
+                            (String) resourceInfo.getProperties().get(ChainMakerConstant.CHAINMAKER_CONTRACT_NAME),
+                            ChainConfigOuterClass.AddrType.CHAINMAKER);
+                    resourceProperties.put(
+                            ChainMakerConstant.CHAINMAKER_CONTRACT_ADDRESS,
+                            contractAddress);
+                    String contractVersion = (String) resourceInfo.getProperties().get(
+                            ChainMakerConstant.CHAINMAKER_CONTRACT_VERSION);
+                    resourceProperties.put(
+                            ChainMakerConstant.CHAINMAKER_CONTRACT_VERSION,
+                            contractVersion);
+                    resourceInfo.setProperties(resourceProperties);
+                    this.connectionEventHandler.onANewResource(resourceInfo);
+                }
+
             } else {
                 logger.warn("deploy a contract {} was failure. response: {}",
                         resourceInfo.getName(), weCrossResponse.getContractResult().getMessage());

@@ -20,8 +20,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileWriter;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 
@@ -179,7 +177,7 @@ public class ChainMakerStubFactory implements StubFactory {
                         + "'\n"
                         + "    type = '"
                         + getStubType()
-                        + "\n"
+                        + "'\n"
                         + "[endorsement]\n"
                         + "    entries = [%s]\n"
                         + "\n"
@@ -189,11 +187,16 @@ public class ChainMakerStubFactory implements StubFactory {
                 basePath + File.separator + "crypto-config");
         File[] orgIds = getOrgIdPaths(sdkConfigPath);
         if(orgIds == null) {
-            return "";
+            logger.warn("orgIds are empty. {}", path);
+            return String.format(accountTemplate, "", "");
         }
 
         int lastIndex = 0;
         for(File orgId: orgIds) {
+            if(orgId.isHidden()) {
+                continue;
+            }
+
             entries += "'" + orgId.getName() + "'";
             if(++lastIndex != orgIds.length) {
                 entries += ",";
@@ -202,7 +205,7 @@ public class ChainMakerStubFactory implements StubFactory {
             endorsement += "[[" + orgId.getName() + "]]\n";
             File[] users = getUserPaths(orgId);
             if(users == null) {
-                return "";
+                continue;
             }
             for(File user: users) {
                 String userName = user.getName();
@@ -272,6 +275,13 @@ public class ChainMakerStubFactory implements StubFactory {
                     new File(path + File.separator + "WeCrossProxy" + File.separator + proxyBinPath);
             FileUtils.copyURLToFile(proxyDir, dest);
 
+            String proxyABIPath = "WeCrossProxy.abi";
+            proxyDir = getClass().getResource(
+                    File.separator + "contract/WeCrossProxy" + File.separator + proxyABIPath);
+            dest =
+                    new File(path + File.separator + "WeCrossProxy" + File.separator + proxyABIPath);
+            FileUtils.copyURLToFile(proxyDir, dest);
+
         } catch (Exception e) {
             System.out.println(e);
         }
@@ -287,6 +297,11 @@ public class ChainMakerStubFactory implements StubFactory {
             String hubBinPath = "WeCrossHub.bin";
             hubDir = getClass().getResource(File.separator + "contract/WeCrossHub" + File.separator + hubBinPath);
             dest = new File(path + File.separator + "WeCrossHub" + File.separator + hubBinPath);
+            FileUtils.copyURLToFile(hubDir, dest);
+
+            String hubABIPath = "WeCrossHub.abi";
+            hubDir = getClass().getResource(File.separator + "contract/WeCrossHub" + File.separator + hubABIPath);
+            dest = new File(path + File.separator + "WeCrossHub" + File.separator + hubABIPath);
             FileUtils.copyURLToFile(hubDir, dest);
 
         } catch (Exception e) {
