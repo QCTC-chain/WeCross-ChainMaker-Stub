@@ -79,9 +79,13 @@ public class ChainMakerAccount implements Account {
                         message);
                 }
             } else {
+                String hash = "ECDSA";
+                if(this.type.equals("ChainMakerGMWithCert") || this.type.equals("ChainMakerGMWithPublic")) {
+                    hash = "SM3";
+                }
                 signature = this.user.getCryptoSuite().rsaSign(
                     CryptoUtils.getPrivateKeyFromBytes(this.user.getPriBytes()), 
-                    message);
+                    message, hash);
             }
         } catch (ChainMakerCryptoSuiteException ec) {
             logger.warn("signature was failure. ec:", ec);
