@@ -202,12 +202,12 @@ public class ChainMakerStubFactory implements StubFactory {
                 entries += ",";
             }
 
-            endorsement += "[[" + orgId.getName() + "]]\n";
             File[] users = getUserPaths(orgId);
             if(users == null) {
                 continue;
             }
             for(File user: users) {
+                endorsement += "[[" + orgId.getName() + "]]\n";
                 String userName = user.getName();
                 File signCertFilePath = getSignCertFilePath(user);
                 File signKeyFilePath = getSignKeyFilePath(user);
