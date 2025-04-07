@@ -33,6 +33,8 @@ public class DeployWeCrossContract {
     private void deployOrUpgradeProxyContract(boolean deploy, String contractName) throws Exception {
         String contractBinFile = this.chainPath
                 + File.separator
+                + "contract"
+                + File.separator
                 + contractName
                 + File.separator
                 + contractName + ".bin";
