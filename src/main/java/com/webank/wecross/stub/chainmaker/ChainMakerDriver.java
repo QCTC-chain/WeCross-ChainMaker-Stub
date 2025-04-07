@@ -391,16 +391,16 @@ public class ChainMakerDriver implements Driver {
                     transactionResponse.setHash(chainMakerResponse.getTxId());
                     transactionResponse.setBlockNumber(blockNum);
                     transactionResponse.setMessage(chainMakerResponse.getContractResult().getMessage());
-                    String output = Hex.toHexString(
-                                    chainMakerResponse
-                                            .getContractResult()
-                                            .getResult()
-                                            .toByteArray())
-                            .substring(128);
+                    String hexString = Hex.toHexString(
+                            chainMakerResponse
+                                    .getContractResult()
+                                    .getResult()
+                                    .toByteArray());
+                    String output = hexString.length() > 128 ? hexString.substring(128) : "";
                     String decodeOutput = FunctionUtility.decodeOutputAsString(output);
                     List<String> result = new ArrayList<>();
                     if (Objects.isNull(decodeOutput) || decodeOutput.isEmpty()) {
-                        result.add(String.format("%s invoke successfully.", request.getMethod()));
+                        result.add("");
                     } else {
                         result.add(decodeOutput);
                     }
