@@ -1,6 +1,5 @@
 package com.webank.wecross.stub.chainmaker;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.webank.wecross.exception.WeCrossException;
 import com.webank.wecross.stub.*;
 import com.webank.wecross.stub.chainmaker.abi.wrapper.*;
@@ -23,6 +22,7 @@ import org.chainmaker.pb.common.ChainmakerTransaction;
 import org.chainmaker.pb.common.ContractOuterClass;
 import org.chainmaker.pb.common.ResultOuterClass;
 import org.chainmaker.sdk.User;
+import org.chainmaker.sdk.ChainClientException;
 import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
 import org.chainmaker.sdk.utils.SdkUtils;
 import org.chainmaker.sdk.utils.UtilsException;
@@ -346,6 +346,28 @@ public class ChainMakerDriver implements Driver {
         );
     }
 
+    // 获取区块高度
+    private long getBlockNumber(BlockManager blockManager) {
+        final CompletableFuture<Long> getContractListFuture = new CompletableFuture<Long>();
+        blockManager.asyncGetBlockNumber(
+                (blockNumberException, blockNumber) -> {
+                    if (Objects.nonNull(blockNumberException)) {
+                        getContractListFuture.complete(0L);
+                    } else {
+                        getContractListFuture.complete(blockNumber);
+                    }
+                }
+        );
+        long blockNum = 0;
+        try {
+            blockNum = getContractListFuture.get();
+        } catch (Exception e) {
+            blockNum = 0;
+        }
+
+        return  blockNum;
+    }
+
     private void handleAsyncSendResponse(
             Response response,
             TransactionContext context,
@@ -369,23 +391,7 @@ public class ChainMakerDriver implements Driver {
                 if(chainMakerResponse.getContractResult().getCode() == ResultOuterClass.TxStatusCode.SUCCESS.getNumber()) {
 
                     // 获取区块高度
-                    final CompletableFuture<Long> getContractListFuture = new CompletableFuture<Long>();
-                    context.getBlockManager().asyncGetBlockNumber(
-                            (blockNumberException, blockNumber) -> {
-                                if (Objects.nonNull(blockNumberException)) {
-                                    getContractListFuture.complete(0L);
-                                } else {
-                                    getContractListFuture.complete(blockNumber);
-                                }
-                            }
-                    );
-                    long blockNum = 0;
-                    try {
-                        blockNum = getContractListFuture.get();
-                    } catch (Exception e) {
-                        blockNum = 0;
-                    }
-
+                    long blockNum = getBlockNumber(context.getBlockManager());
                     TransactionResponse transactionResponse = new TransactionResponse();
                     transactionResponse.setErrorCode(ResultOuterClass.TxStatusCode.SUCCESS.getNumber());
                     transactionResponse.setHash(chainMakerResponse.getTxId());
@@ -480,6 +486,51 @@ public class ChainMakerDriver implements Driver {
                     callback.onResponse(null, blockNumber.longValue());
                 }
             });
+    }
+
+    @Override
+    public void subscribeEvent(
+            TransactionContext context,
+            SubscribeRequest request,
+            Connection connection,
+            Driver.Callback callback) {
+        ChainMakerConnection chainMakerConnection = (ChainMakerConnection) connection;
+        String contractName = context.getPath().getResource();
+        String topic = request.getTopics().get(0).trim();
+        try {
+            long fromBlockNumber = request.getFromBlockNumber();
+            long toBlockNumber = request.getToBlockNumber();
+            chainMakerConnection.addSubscriber(
+                    context,
+                    contractName,
+                    topic,
+                    fromBlockNumber,
+                    toBlockNumber);
+            TransactionResponse response = new TransactionResponse();
+            response.setMessage(String.format("订阅成功"));
+            List<String> result = new ArrayList<>();
+            result.add(String.format("path:%s", context.getPath()));
+            result.add(String.format("topics:%s", topic));
+            result.add(String.format("raw topics:%s", request.getTopics().get(0)));
+            result.add(String.format("from:%d", fromBlockNumber));
+            result.add(String.format("to:%d", toBlockNumber));
+            response.setResult(result.stream().toArray(String[]::new));
+            callback.onTransactionResponse(null, response);
+
+        } catch (ChainClientException e) {
+            logger.warn("subscribe event {} was failure. e: {}", contractName, e.getMessage());
+            callback.onTransactionResponse(
+                    new TransactionException(ChainMakerStatusCode.HandleSubscribeEvent, e.getMessage()),
+                    null
+            );
+        } catch (ChainMakerCryptoSuiteException e) {
+            logger.warn("subscribe event {} was failure. e: {}", contractName, e.getMessage());
+            callback.onTransactionResponse(
+                    new TransactionException(ChainMakerStatusCode.HandleSubscribeEvent, e.getMessage()),
+                    null
+            );
+        }
+
     }
 
     @Override

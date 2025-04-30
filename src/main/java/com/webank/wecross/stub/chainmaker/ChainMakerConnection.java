@@ -1,12 +1,15 @@
 package com.webank.wecross.stub.chainmaker;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.webank.wecross.exception.WeCrossException;
 import com.webank.wecross.stub.*;
 
+import com.webank.wecross.stub.chainmaker.abi.ABICodec;
 import com.webank.wecross.stub.chainmaker.common.BlockUtility;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerRequestType;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerStatusCode;
+import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 
 import org.chainmaker.pb.common.ChainmakerBlock;
 import org.chainmaker.pb.common.ChainmakerTransaction;
@@ -19,6 +22,11 @@ import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
 import org.chainmaker.sdk.utils.CryptoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.grpc.stub.StreamObserver;
+
+import org.web3j.utils.Numeric;
+import org.web3j.crypto.Hash;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,6 +47,8 @@ public class ChainMakerConnection implements Connection {
     private Map<String, String> properties = new HashMap<>();
 
     private final CompletableFuture<Boolean> getContractListFuture = new CompletableFuture<>();
+
+    private Map<String, StreamObserver<ResultOuterClass.SubscribeResult>> subscribers = new HashMap<>();
 
     public ChainMakerConnection(ChainClient chainClient) {
         this.chainClient = chainClient;
@@ -89,6 +99,91 @@ public class ChainMakerConnection implements Connection {
 
     public void addProperty(String key, String value) {
         this.properties.put(key, value);
+    }
+
+    private String stringToTopic(String s) {
+        final byte[] input = s.getBytes();
+        final byte[] hash = Hash.sha3(input);
+        return Numeric.cleanHexPrefix(Numeric.toHexString(hash));
+    }
+    public StreamObserver<ResultOuterClass.SubscribeResult> addSubscriber(
+            TransactionContext context,
+            String contract,
+            String topic,
+            long from,
+            long to) throws ChainClientException, ChainMakerCryptoSuiteException {
+        String rawTopic = topic;
+        if(topic.equals("*")
+                || (topic.length() == 2 && topic.charAt(0) == '\'' && topic.charAt(1) == '\'')
+                || (topic.length() == 2 && topic.charAt(0) == '"' && topic.charAt(1) == '"')) {
+            topic = "";
+        } else {
+            topic = stringToTopic(topic);
+        }
+        String key = String.format("%s-%s-%d-%d", contract, topic, from, to);
+        StreamObserver<ResultOuterClass.SubscribeResult> subscriber = subscribers.getOrDefault(
+                key, null);
+        if (subscriber == null) {
+            subscriber = new StreamObserver<ResultOuterClass.SubscribeResult>() {
+                // refer to:
+                // https://git.chainmaker.org.cn/chainmaker/sdk-java/-/blob/master/src/test/java/org/chainmaker/sdk/TestSubscribe.java
+                @Override
+                public void onNext(ResultOuterClass.SubscribeResult value) {
+                    try {
+                        ResultOuterClass.ContractEventInfoList contract = ResultOuterClass
+                                .ContractEventInfoList
+                                .parseFrom(value.getData());
+                        int count = contract.getContractEventsCount();
+                        for (int i = 0; i < count; i++) {
+                            ResultOuterClass.ContractEventInfo eventInfo = contract.getContractEvents(i);
+
+                            logger.info("contract event: {}", eventInfo);
+
+                            String abiContent = "";
+                            try {
+                                abiContent = ConfigUtils.getContractABI(
+                                        getConfigPath(),
+                                        eventInfo.getContractName());
+                            } catch (Exception e) {
+                                logger.error("获取 ABI 失败。 {}/{}",
+                                        getConfigPath(), eventInfo.getContractName());
+                            }
+                            logger.info("获取 ABI 数据: {}", abiContent.length());
+                            if (!abiContent.isEmpty()) {
+                                ABICodec abiCodec = new ABICodec();
+                                Map<String, Object> decodedData = abiCodec.decodeEvent(abiContent, eventInfo);
+                                Map<String, Object> result = new HashMap<>();
+                                result.put("block_height", eventInfo.getBlockHeight());
+                                result.put("chain_id", eventInfo.getChainId());
+                                result.put("topic", eventInfo.getTopic());
+                                result.put("contract_name", eventInfo.getContractName());
+                                result.put("contract_version", eventInfo.getContractVersion());
+                                result.put("event_data", decodedData);
+                                context.getCallback().onSubscribe(
+                                        eventInfo.getContractName(),
+                                        rawTopic,
+                                        result);
+                            }
+                        }
+                    } catch (InvalidProtocolBufferException e) {
+                        logger.error("处理订阅事件 {}:{} 失败。{}", contract, rawTopic, e.getMessage());
+                    }
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    logger.error("处理订阅事件 {}:{} 失败。{}", contract, rawTopic, t.getMessage());
+                }
+
+                @Override
+                public void onCompleted() {
+
+                }
+            };
+            subscribers.put(key, subscriber);
+            this.chainClient.subscribeContractEvent(from, to, topic, contract, subscriber);
+        }
+        return subscriber;
     }
 
     public List<ResourceInfo> getResources() {

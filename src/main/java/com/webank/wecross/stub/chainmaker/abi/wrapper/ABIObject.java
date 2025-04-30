@@ -1,6 +1,7 @@
 package com.webank.wecross.stub.chainmaker.abi.wrapper;
 
-import org.web3j.abi.TypeDecoder;
+import com.webank.wecross.stub.chainmaker.abi.TypeDecoder;
+
 import org.web3j.abi.TypeEncoder;
 import org.web3j.abi.datatypes.*;
 
@@ -8,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.web3j.abi.datatypes.generated.*;
 
-import java.math.BigInteger;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
