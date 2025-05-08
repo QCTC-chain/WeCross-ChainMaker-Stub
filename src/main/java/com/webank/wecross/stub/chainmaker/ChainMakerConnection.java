@@ -84,7 +84,8 @@ public class ChainMakerConnection implements Connection {
             handleAsyncCallRequest(request, callback);
         } else if (request.getType() == ChainMakerRequestType.SEND_TRANSACTION) {
             handleAsyncTransactionRequest(request, callback);
-        } else if (request.getType() == ChainMakerRequestType.SEND_RAW_TRANSACTION) {
+        } else if (request.getType() == ChainMakerRequestType.SEND_RAW_TRANSACTION
+                || request.getType() == ChainMakerRequestType.CALL_RAW_TRANSACTION) {
             handleAsyncRawTransactionRequest(request, callback);
         } else if (request.getType() == ChainMakerRequestType.GET_CONTRACT_LIST) {
             handleGetContractListRequest(request, callback);
@@ -396,13 +397,24 @@ public class ChainMakerConnection implements Connection {
                 if (params.isEmpty()) {
                     params = null;
                 }
-                responseInfo = chainClient.invokeContract(
-                        contractName,
-                        method,
-                        null,
-                        params,
-                        RPC_CALL_TIMEOUT,
-                        RPC_CALL_TIMEOUT);
+
+                if (request.getType() == ChainMakerRequestType.CALL_RAW_TRANSACTION) {
+                    responseInfo = chainClient.queryContract(
+                            contractName,
+                            method,
+                            null,
+                            params,
+                            RPC_CALL_TIMEOUT);
+                } else if (request.getType() == ChainMakerRequestType.SEND_RAW_TRANSACTION) {
+                    responseInfo = chainClient.invokeContract(
+                            contractName,
+                            method,
+                            null,
+                            params,
+                            RPC_CALL_TIMEOUT,
+                            RPC_CALL_TIMEOUT);
+                }
+
                 response.setErrorCode(ChainMakerStatusCode.Success);
                 response.setData(responseInfo.toByteArray());
             } else if(contractInfo.getRuntimeType().name().equals("EVM")) {
@@ -428,7 +440,6 @@ public class ChainMakerConnection implements Connection {
                     response.setErrorCode(ChainMakerStatusCode.Success);
                     response.setData(hexString.getBytes());
                 }
-
             }
         } catch (IOException | ClassNotFoundException e) {
             String errorMsg = String.format("反序列化请求对象失败。 %s", e.getMessage());

@@ -75,7 +75,7 @@ public class ChainMakerDriver implements Driver {
 //        } else {
 //            asyncCallDirectly(context, request, connection, callback);
 //        }
-        asyncCallDirectly(context, request, connection, callback);
+        asyncCallOrInvokeDirectly(false, context, request, connection, callback);
     }
 
     @Override
@@ -104,7 +104,8 @@ public class ChainMakerDriver implements Driver {
             // 升级用户合约
             deployWeCrossCustomerContract(false, context, request, connection, callback);
         }else {
-            invokeSendTransaction(context, request, connection, callback);
+            //invokeSendTransaction(context, request, connection, callback);
+            asyncCallOrInvokeDirectly(true, context, request, connection, callback);
         }
     }
 
@@ -266,7 +267,8 @@ public class ChainMakerDriver implements Driver {
         invokeWeCrossProxy(context, request, connection, function, callback);
     }
 
-    private void asyncCallDirectly(
+    private void asyncCallOrInvokeDirectly(
+            boolean isInvoke,
             TransactionContext context,
             TransactionRequest request,
             Connection connection,
@@ -277,7 +279,9 @@ public class ChainMakerDriver implements Driver {
         requestData.put("method", request.getMethod());
         requestData.put("args", request.getArgs());
         try {
-            Request weCrossRequest = Request.newRequest(ChainMakerRequestType.SEND_RAW_TRANSACTION, Serialization.serialize(requestData));
+            Request weCrossRequest = Request.newRequest(
+                    isInvoke ? ChainMakerRequestType.SEND_RAW_TRANSACTION : ChainMakerRequestType.CALL_RAW_TRANSACTION,
+                    Serialization.serialize(requestData));
             weCrossRequest.setPath(path.toString());
             ChainMakerConnection chainMakerConnection = (ChainMakerConnection)connection;
             chainMakerConnection.asyncSend(
