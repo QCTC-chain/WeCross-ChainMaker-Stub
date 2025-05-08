@@ -38,6 +38,23 @@ public class FunctionUtility {
     }
 
     /**
+     * WeCrossHub getInterchainRequests function <br>
+     * </>function getInterchainRequests(uint256 _num) public view
+     * returns(string memory)
+     *
+     * @param num
+     * @return
+     */
+    public static Function newGetInterChainRequestHubFunction(int num) {
+        Function function =
+                new Function(
+                        "getInterchainRequests",
+                        Arrays.<Type>asList(new Uint256(num)),
+                        Collections.<TypeReference<?>>emptyList());
+        return function;
+    }
+
+    /**
      * WeCrossProxy constantCall function <br>
      * </>function sendTransaction(string memory _name, bytes memory _argsWithMethodId) public
      * returns(bytes memory)

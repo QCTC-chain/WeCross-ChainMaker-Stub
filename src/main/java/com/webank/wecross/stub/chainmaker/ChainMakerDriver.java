@@ -15,6 +15,7 @@ import com.webank.wecross.stub.chainmaker.custom.CommandHandler;
 import com.webank.wecross.stub.chainmaker.custom.CommandHandlerDispatcher;
 import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 import com.webank.wecross.stub.chainmaker.utils.FunctionUtility;
+import com.webank.wecross.stub.chainmaker.utils.Serialization;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.bouncycastle.util.encoders.Hex;
 import org.chainmaker.pb.common.ChainmakerBlock;
@@ -69,7 +70,12 @@ public class ChainMakerDriver implements Driver {
         Connection connection, 
         Callback callback) {
         logger.info("async, context: {}, request: {}, proxy: {}", context, request, byProxy);
-        asyncCallByProxy(context, request, connection, callback);
+//        if (byProxy) {
+//            asyncCallByProxy(context, request, connection, callback);
+//        } else {
+//            asyncCallDirectly(context, request, connection, callback);
+//        }
+        asyncCallDirectly(context, request, connection, callback);
     }
 
     @Override
@@ -260,6 +266,30 @@ public class ChainMakerDriver implements Driver {
         invokeWeCrossProxy(context, request, connection, function, callback);
     }
 
+    private void asyncCallDirectly(
+            TransactionContext context,
+            TransactionRequest request,
+            Connection connection,
+            Callback callback) {
+
+        Path path = context.getPath();
+        Map<String, Object> requestData = new HashMap<>();
+        requestData.put("method", request.getMethod());
+        requestData.put("args", request.getArgs());
+        try {
+            Request weCrossRequest = Request.newRequest(ChainMakerRequestType.SEND_RAW_TRANSACTION, Serialization.serialize(requestData));
+            weCrossRequest.setPath(path.toString());
+            ChainMakerConnection chainMakerConnection = (ChainMakerConnection)connection;
+            chainMakerConnection.asyncSend(
+                    weCrossRequest,
+                    response -> {
+                        handleAsyncSendResponse(response, context, request, callback);
+                    }
+            );
+        } catch (IOException e) {
+            logger.error("序列化请求对象失败。{}", e.getMessage());
+        }
+    }
     private void invokeSendTransaction(
             TransactionContext context,
             TransactionRequest request,
@@ -397,19 +427,8 @@ public class ChainMakerDriver implements Driver {
                     transactionResponse.setHash(chainMakerResponse.getTxId());
                     transactionResponse.setBlockNumber(blockNum);
                     transactionResponse.setMessage(chainMakerResponse.getContractResult().getMessage());
-                    String hexString = Hex.toHexString(
-                            chainMakerResponse
-                                    .getContractResult()
-                                    .getResult()
-                                    .toByteArray());
-                    String output = hexString.length() > 128 ? hexString.substring(128) : "";
-                    String decodeOutput = FunctionUtility.decodeOutputAsString(output);
-                    List<String> result = new ArrayList<>();
-                    if (Objects.isNull(decodeOutput) || decodeOutput.isEmpty()) {
-                        result.add("");
-                    } else {
-                        result.add(decodeOutput);
-                    }
+                    List<Object> result = new ArrayList<>();
+                    result.add(chainMakerResponse.getContractResult().toString());
                     transactionResponse.setResult(result.stream().toArray(String[]::new));
                     callback.onTransactionResponse(null, transactionResponse);
                 } else {

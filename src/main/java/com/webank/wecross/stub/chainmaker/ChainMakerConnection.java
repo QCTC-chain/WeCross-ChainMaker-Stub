@@ -11,6 +11,9 @@ import com.webank.wecross.stub.chainmaker.common.ChainMakerRequestType;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerStatusCode;
 import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 
+import com.webank.wecross.stub.chainmaker.utils.FunctionUtility;
+import com.webank.wecross.stub.chainmaker.utils.Serialization;
+import org.bouncycastle.util.encoders.Hex;
 import org.chainmaker.pb.common.ChainmakerBlock;
 import org.chainmaker.pb.common.ChainmakerTransaction;
 import org.chainmaker.pb.common.ContractOuterClass;
@@ -25,9 +28,12 @@ import org.slf4j.LoggerFactory;
 
 import io.grpc.stub.StreamObserver;
 
+import org.web3j.abi.FunctionEncoder;
+import org.web3j.abi.datatypes.Function;
 import org.web3j.utils.Numeric;
 import org.web3j.crypto.Hash;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -78,6 +84,8 @@ public class ChainMakerConnection implements Connection {
             handleAsyncCallRequest(request, callback);
         } else if (request.getType() == ChainMakerRequestType.SEND_TRANSACTION) {
             handleAsyncTransactionRequest(request, callback);
+        } else if (request.getType() == ChainMakerRequestType.SEND_RAW_TRANSACTION) {
+            handleAsyncRawTransactionRequest(request, callback);
         } else if (request.getType() == ChainMakerRequestType.GET_CONTRACT_LIST) {
             handleGetContractListRequest(request, callback);
         } else if (request.getType() == ChainMakerRequestType.CREATE_CUSTOMER_CONTRACT
@@ -118,7 +126,10 @@ public class ChainMakerConnection implements Connection {
                 || (topic.length() == 2 && topic.charAt(0) == '"' && topic.charAt(1) == '"')) {
             topic = "";
         } else {
-            topic = stringToTopic(topic);
+            ContractOuterClass.Contract contractInfo = chainClient.getContractInfo(contract, RPC_CALL_TIMEOUT);
+            if (contractInfo.getRuntimeType().name().equals("EVM")) {
+                topic = stringToTopic(topic);
+            }
         }
         String key = String.format("%s-%s-%d-%d", contract, topic, from, to);
         StreamObserver<ResultOuterClass.SubscribeResult> subscriber = subscribers.getOrDefault(
@@ -139,34 +150,43 @@ public class ChainMakerConnection implements Connection {
 
                             logger.info("contract event: {}", eventInfo);
 
-                            String abiContent = "";
-                            try {
-                                abiContent = ConfigUtils.getContractABI(
-                                        getConfigPath(),
-                                        eventInfo.getContractName());
-                            } catch (Exception e) {
-                                logger.error("获取 ABI 失败。 {}/{}",
-                                        getConfigPath(), eventInfo.getContractName());
+                            Map<String, Object> result = new HashMap<>();
+                            result.put("block_height", eventInfo.getBlockHeight());
+                            result.put("chain_id", eventInfo.getChainId());
+                            result.put("topic", eventInfo.getTopic());
+                            result.put("contract_name", eventInfo.getContractName());
+                            result.put("contract_version", eventInfo.getContractVersion());
+
+                            ContractOuterClass.Contract contractInfo = chainClient.getContractInfo(eventInfo.getContractName(), RPC_CALL_TIMEOUT);
+                            if (contractInfo.getRuntimeType().name().equals("DOCKER_GO")) {
+                                result.put("event_data", eventInfo.getEventDataList());
+                            } else if (contractInfo.getRuntimeType().name().equals("EVM")) {
+                                String abiContent = "";
+                                try {
+                                    abiContent = ConfigUtils.getContractABI(
+                                            getConfigPath(),
+                                            eventInfo.getContractName());
+                                } catch (Exception e) {
+                                    logger.error("获取 ABI 失败。 {}/{}",
+                                            getConfigPath(), eventInfo.getContractName());
+                                }
+                                logger.info("获取 ABI 数据: {}", abiContent.length());
+
+                                if (!abiContent.isEmpty()) {
+                                    ABICodec abiCodec = new ABICodec();
+                                    Map<String, Object> decodedData = abiCodec.decodeEvent(abiContent, eventInfo);
+                                    result.put("event_data", decodedData);
+                                }
                             }
-                            logger.info("获取 ABI 数据: {}", abiContent.length());
-                            if (!abiContent.isEmpty()) {
-                                ABICodec abiCodec = new ABICodec();
-                                Map<String, Object> decodedData = abiCodec.decodeEvent(abiContent, eventInfo);
-                                Map<String, Object> result = new HashMap<>();
-                                result.put("block_height", eventInfo.getBlockHeight());
-                                result.put("chain_id", eventInfo.getChainId());
-                                result.put("topic", eventInfo.getTopic());
-                                result.put("contract_name", eventInfo.getContractName());
-                                result.put("contract_version", eventInfo.getContractVersion());
-                                result.put("event_data", decodedData);
-                                context.getCallback().onSubscribe(
-                                        eventInfo.getContractName(),
-                                        rawTopic,
-                                        result);
-                            }
+                            context.getCallback().onSubscribe(
+                                    eventInfo.getContractName(),
+                                    rawTopic,
+                                    result);
                         }
                     } catch (InvalidProtocolBufferException e) {
                         logger.error("处理订阅事件 {}:{} 失败。{}", contract, rawTopic, e.getMessage());
+                    } catch (ChainMakerCryptoSuiteException | ChainClientException e) {
+                        logger.error("获取合约 {} 信息 失败。{}", contract, e.getMessage());
                     }
                 }
 
@@ -329,7 +349,6 @@ public class ChainMakerConnection implements Connection {
             byte[] requestBytes = request.getData();
             String method = new String(requestBytes, StandardCharsets.UTF_8);
             method = method.substring(0, 10);
-            new String(requestBytes, StandardCharsets.UTF_8);
             params.put("data", requestBytes);
             ResultOuterClass.TxResponse chainMakerResponse = chainClient.invokeContract(
                     ChainMakerConstant.CHAINMAKER_PROXY_NAME,
@@ -351,6 +370,84 @@ public class ChainMakerConnection implements Connection {
         callback.onResponse(response);
     }
 
+    private void handleAsyncRawTransactionRequest(Request request, Callback callback) {
+        Response response = new Response();
+        try {
+            Path path = new Path(request.getPath());
+            String contractName = path.getResource();
+            Map<String, Object> requestData = (Map<String, Object>)Serialization.deserialize(request.getData());
+            String method = (String)requestData.get("method");
+            String[] args = (String[])requestData.get("args");
+            ContractOuterClass.Contract contractInfo = chainClient.getContractInfo(contractName, RPC_CALL_TIMEOUT);
+            ResultOuterClass.TxResponse responseInfo = null;
+            Map<String, byte[]> params = new HashMap<>();
+            if (contractInfo.getRuntimeType().name().equals("DOCKER_GO")) {
+
+                if (args.length > 1 && args.length % 2 != 0) {
+                    response.setErrorCode(ChainMakerStatusCode.InnerError);
+                    response.setErrorMessage("参数格式错误，需按 key1 value1 key2 value2 形式组织参数");
+                    callback.onResponse(response);
+                    return;
+                }
+
+                for(int i = 0; i < args.length; i+=2) {
+                    params.put(args[i], args[i + 1].getBytes(StandardCharsets.UTF_8));
+                }
+                if (params.isEmpty()) {
+                    params = null;
+                }
+                responseInfo = chainClient.invokeContract(
+                        contractName,
+                        method,
+                        null,
+                        params,
+                        RPC_CALL_TIMEOUT,
+                        RPC_CALL_TIMEOUT);
+                response.setErrorCode(ChainMakerStatusCode.Success);
+                response.setData(responseInfo.toByteArray());
+            } else if(contractInfo.getRuntimeType().name().equals("EVM")) {
+                logger.info("EVM call {} {}", method, args);
+                if (path.getResource().equals("WeCrossHub") && method.equals("getInterchainRequests")) {
+                    Function function = FunctionUtility.newGetInterChainRequestHubFunction(Integer.valueOf(args[0]));
+                    byte[] requestBytes = FunctionEncoder.encode(function).getBytes();
+                    String method_id = new String(requestBytes, StandardCharsets.UTF_8);
+                    method_id = method_id.substring(0, 10);
+                    params.put("data", requestBytes);
+                    responseInfo = chainClient.queryContract(
+                            ChainMakerConstant.CHAINMAKER_PROXY_NAME,
+                            method_id,
+                            null,
+                            params,
+                            RPC_CALL_TIMEOUT
+                    );
+                    String hexString = Hex.toHexString(
+                            responseInfo
+                                    .getContractResult()
+                                    .getResult()
+                                    .toByteArray());
+                    response.setErrorCode(ChainMakerStatusCode.Success);
+                    response.setData(hexString.getBytes());
+                }
+
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            String errorMsg = String.format("反序列化请求对象失败。 %s", e.getMessage());
+            logger.error(errorMsg);
+            response.setErrorCode(ChainMakerStatusCode.InnerError);
+            response.setErrorMessage(errorMsg);
+        } catch(ChainMakerCryptoSuiteException | ChainClientException e) {
+            String errorMsg = String.format("调用合约失败。 %s", e.getMessage());
+            logger.error(errorMsg);
+            response.setErrorCode(ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed);
+            response.setErrorMessage(errorMsg);
+        } catch (Exception e) {
+            String errorMsg = String.format("处理请求错误。 %s", e.getMessage());
+            logger.error(errorMsg);
+            response.setErrorCode(ChainMakerStatusCode.InnerError);
+            response.setErrorMessage(errorMsg);
+        }
+        callback.onResponse(response);
+    }
     private void handleGetContractListRequest(Request request, Callback callback) {
         Response response = new Response();
         try {
