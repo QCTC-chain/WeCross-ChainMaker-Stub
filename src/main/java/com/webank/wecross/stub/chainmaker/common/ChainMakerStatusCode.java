@@ -10,6 +10,7 @@ public class ChainMakerStatusCode {
     public static final int HandleDeployContract = 3000;
     public static final int HandleGetContracts = 3001;
     public static final int HandleSubscribeEvent = 3002;
+    public static final int ContractResultFailed = 3003;
     public static final int InnerError = 8000;
 
     public static String getStatusMessage(int status) {
@@ -41,6 +42,9 @@ public class ChainMakerStatusCode {
                 break;
             case InnerError:
                 message = "Inner error";
+                break;
+            case ContractResultFailed:
+                message = "ContractResultFailed";
                 break;
             default:
                 message = "unrecognized status: " + status;

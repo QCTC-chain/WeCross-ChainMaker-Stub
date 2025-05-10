@@ -483,8 +483,8 @@ public class ABIObject {
                     }
                     case BYTES:
                     {
-                        abiObject.setBytesValue(
-                                TypeDecoder.decode(input, offset, DynamicBytes.class));
+                        DynamicBytes dynamicBytes = decodeBytes(abiObject, input, offset);
+                        abiObject.setBytesValue(dynamicBytes);
                         break;
                     }
                     case ADDRESS:
@@ -584,6 +584,110 @@ public class ABIObject {
         }
 
         return abiObject;
+    }
+
+    private DynamicBytes decodeBytes(ABIObject abiObject, String input, int offset) {
+        DynamicBytes dynamicBytes = null;
+        if (abiObject.getBytesLength() == 32) {
+            Bytes32 bytes32 = TypeDecoder.decode(input, offset, Bytes32.class);
+            dynamicBytes = new DynamicBytes(bytes32.getValue());
+        } else if (abiObject.getBytesLength() == 31) {
+            Bytes31 bytes31 = TypeDecoder.decode(input, offset, Bytes31.class);
+            dynamicBytes = new DynamicBytes(bytes31.getValue());
+        } else if (abiObject.getBytesLength() == 30) {
+            Bytes30 bytes30 = TypeDecoder.decode(input, offset, Bytes30.class);
+            dynamicBytes = new DynamicBytes(bytes30.getValue());
+        } else if (abiObject.getBytesLength() == 29) {
+            Bytes29 bytes29 = TypeDecoder.decode(input, offset, Bytes29.class);
+            dynamicBytes = new DynamicBytes(bytes29.getValue());
+        } else if (abiObject.getBytesLength() == 28) {
+            Bytes28 bytes = TypeDecoder.decode(input, offset, Bytes28.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 27) {
+            Bytes27 bytes = TypeDecoder.decode(input, offset, Bytes27.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 26) {
+            Bytes26 bytes = TypeDecoder.decode(input, offset, Bytes26.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 25) {
+            Bytes25 bytes = TypeDecoder.decode(input, offset, Bytes25.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 24) {
+            Bytes24 bytes = TypeDecoder.decode(input, offset, Bytes24.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 23) {
+            Bytes23 bytes = TypeDecoder.decode(input, offset, Bytes23.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 22) {
+            Bytes22 bytes = TypeDecoder.decode(input, offset, Bytes22.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 21) {
+            Bytes21 bytes = TypeDecoder.decode(input, offset, Bytes21.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 20) {
+            Bytes20 bytes = TypeDecoder.decode(input, offset, Bytes20.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 19) {
+            Bytes19 bytes = TypeDecoder.decode(input, offset, Bytes19.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 18) {
+            Bytes18 bytes = TypeDecoder.decode(input, offset, Bytes18.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 17) {
+            Bytes17 bytes = TypeDecoder.decode(input, offset, Bytes17.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 16) {
+            Bytes16 bytes = TypeDecoder.decode(input, offset, Bytes16.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 15) {
+            Bytes15 bytes = TypeDecoder.decode(input, offset, Bytes15.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 14) {
+            Bytes14 bytes = TypeDecoder.decode(input, offset, Bytes14.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 13) {
+            Bytes13 bytes = TypeDecoder.decode(input, offset, Bytes13.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 12) {
+            Bytes12 bytes = TypeDecoder.decode(input, offset, Bytes12.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 11) {
+            Bytes11 bytes = TypeDecoder.decode(input, offset, Bytes11.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 10) {
+            Bytes10 bytes = TypeDecoder.decode(input, offset, Bytes10.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 9) {
+            Bytes9 bytes = TypeDecoder.decode(input, offset, Bytes9.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 8) {
+            Bytes8 bytes = TypeDecoder.decode(input, offset, Bytes8.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 7) {
+            Bytes7 bytes = TypeDecoder.decode(input, offset, Bytes7.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 6) {
+            Bytes6 bytes = TypeDecoder.decode(input, offset, Bytes6.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 5) {
+            Bytes5 bytes = TypeDecoder.decode(input, offset, Bytes5.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 4) {
+            Bytes4 bytes = TypeDecoder.decode(input, offset, Bytes4.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 3) {
+            Bytes3 bytes = TypeDecoder.decode(input, offset, Bytes3.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 2) {
+            Bytes2 bytes = TypeDecoder.decode(input, offset, Bytes2.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else if (abiObject.getBytesLength() == 1) {
+            Bytes1 bytes = TypeDecoder.decode(input, offset, Bytes1.class);
+            dynamicBytes = new DynamicBytes(bytes.getValue());
+        } else {
+            dynamicBytes = TypeDecoder.decode(input, offset, DynamicBytes.class);
+        }
+        return dynamicBytes;
     }
 
     public ObjectType getType() {

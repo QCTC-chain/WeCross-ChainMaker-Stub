@@ -4,6 +4,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -354,7 +355,7 @@ public class ABICodecObject {
                         }
                         case BYTES:
                         {
-                            result.add(new String(formatBytesN(argObject)));
+                            result.add(Hex.toHexString(formatBytesN(argObject)));
                             break;
                         }
                         case DBYTES:

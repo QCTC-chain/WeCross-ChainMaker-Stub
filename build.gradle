@@ -51,7 +51,9 @@ dependencies {
         exclude group: "org.fisco-bcos", module: "tcnative"
     }
 
-    implementation (group: 'org.chainmaker', name: 'chainmaker-sdk-java', version: '2.3.2')
+    implementation (group: 'org.chainmaker', name: 'chainmaker-sdk-java', version: '2.3.2') {
+        exclude group: 'org.web3j'
+    }
     runtimeOnly(group: 'com.google.protobuf', name: 'protobuf-java-util', version: '3.2.0') {
         exclude group: 'com.google.guava', module: 'guava'
         exclude group: 'com.google.protobuf', module: 'protobuf-java'
