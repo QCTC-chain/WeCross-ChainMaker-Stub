@@ -19,8 +19,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.net.URL;
 import java.util.Map;
+import java.util.StringJoiner;
 
 
 public class ChainMakerStubFactory implements StubFactory {
@@ -150,25 +152,29 @@ public class ChainMakerStubFactory implements StubFactory {
     }
 
     private File getSignCertFilePath(File path) {
-        return path.listFiles((dir, name) -> name.contains("sign.crt"))[0];
+        File signPath = new File(path, "sign");
+        return signPath.listFiles((dir, name) -> name.contains(".crt"))[0];
     }
 
     private File getSignKeyFilePath(File path) {
-        return path.listFiles((dir, name) -> name.contains("sign.key"))[0];
+        File signPath = new File(path, "sign");
+        return signPath.listFiles((dir, name) -> name.contains(".key"))[0];
     }
 
     private File getTLSCertFilePath(File path) {
-        return path.listFiles((dir, name) -> name.contains("tls.crt"))[0];
+        File tlsPath = new File(path, "tls");
+        return tlsPath.listFiles((dir, name) -> name.contains(".crt"))[0];
     }
 
     private File getTLSKeyFilePath(File path) {
-        return path.listFiles((dir, name) -> name.contains("tls.key"))[0];
+        File tlsPath = new File(path, "tls");
+        return tlsPath.listFiles((dir, name) -> name.contains(".key"))[0];
     }
 
     private String generateStubTomlConfig(String path) {
         File basePath = new File(path);
         String chainName = basePath.getName();
-        String entries = "";
+        StringJoiner entries = new StringJoiner(",");
         String endorsement = "";
         String accountTemplate =
                 "[common]\n"
@@ -184,23 +190,19 @@ public class ChainMakerStubFactory implements StubFactory {
                         + "%s\n"
                         + "\n";
         File sdkConfigPath = new File(
-                basePath + File.separator + "crypto-config");
+                basePath + File.separator + "certs");
         File[] orgIds = getOrgIdPaths(sdkConfigPath);
         if(orgIds == null) {
             logger.warn("orgIds are empty. {}", path);
             return String.format(accountTemplate, "", "");
         }
 
-        int lastIndex = 0;
         for(File orgId: orgIds) {
             if(orgId.isHidden()) {
                 continue;
             }
 
-            entries += "'" + orgId.getName() + "'";
-            if(++lastIndex != orgIds.length) {
-                entries += ",";
-            }
+            entries.add(String.format("'%s'", orgId.getName()));
 
             File[] users = getUserPaths(orgId);
             if(users == null) {
@@ -222,8 +224,94 @@ public class ChainMakerStubFactory implements StubFactory {
                                 + "\n";
             }
         }
-        String stubContent = String.format(accountTemplate, entries, endorsement);
+        String stubContent = String.format(accountTemplate, entries.toString(), endorsement);
         return stubContent;
+    }
+
+    private void generateStubToml(String path) throws IOException {
+        String stubContent = generateStubTomlConfig(path);
+        String confFilePath = path + File.separator + "stub.toml";
+        File confFile = new File(confFilePath);
+        if (!confFile.createNewFile()) {
+            logger.error("Conf file exists! {}", confFile);
+            return;
+        }
+
+        FileWriter fileWriter = new FileWriter(confFile);
+        try {
+            fileWriter.write(stubContent);
+        } finally {
+            fileWriter.close();
+        }
+    }
+
+    private void generate_sdk_config(String path, String[] args) throws IOException {
+        String sdk_config_template = "chain_client:\n" +
+                "  chain_id: %s\n" +
+                "  org_id: %s\n" +
+                "  user_key_file_path: %s\n" +
+                "  user_crt_file_path: %s\n" +
+                "  user_sign_key_file_path: %s\n" +
+                "  user_sign_crt_file_path: %s\n" +
+                "  retry_limit: 10\n" +
+                "  retry_interval: 500\n" +
+                "  nodes:\n" +
+                "  - node_addr: %s\n" +
+                "    conn_cnt: 10\n" +
+                "    enable_tls: %s\n" +
+                "    trust_root_paths:\n" +
+                "    - %s\n" +
+                "    tls_host_name: chainmaker.org\n" +
+                "  archive:\n" +
+                "    type: mysql\n" +
+                "    dest: root::127.0.0.1:3306\n" +
+                "    secret_key: xxx\n" +
+                "  rpc_client:\n" +
+                "    max_receive_message_size: 16\n" +
+                "  pkcs11:\n" +
+                "    enabled: false";
+
+        String chainId = args[2];
+        String orgId = args[3];
+        String nodeIp = args[4];
+        String nodePort = args[5];
+        String enableTLS = args[6];
+
+        File orgIdPath = new File(path + File.separator + "certs" + File.separator + orgId);
+        File[] users = getUserPaths(orgIdPath);
+        if(users == null) {
+            logger.error("{} is empty.", orgIdPath);
+            return;
+        }
+        File signCertFilePath = getSignCertFilePath(users[0]);
+        File signKeyFilePath = getSignKeyFilePath(users[0]);
+        File tlsCertFilePath = getTLSCertFilePath(users[0]);
+        File tlsKeyFilePath = getTLSKeyFilePath(users[0]);
+
+        String config_sdk_content = String.format(
+                sdk_config_template,
+                chainId, orgId,
+                tlsKeyFilePath.getPath().substring(path.length() + 1),
+                tlsCertFilePath.getPath().substring(path.length() + 1),
+                signKeyFilePath.getPath().substring(path.length() + 1),
+                signCertFilePath.getPath().substring(path.length() + 1),
+                String.format("%s:%s", nodeIp, nodePort),
+                enableTLS,
+                "certs" + File.separator + orgId + File.separator + "ca");
+
+        String sdkConfigFilePath = path + File.separator + "sdk_config.yml";
+        File confFile = new File(sdkConfigFilePath);
+        if (!confFile.createNewFile()) {
+            logger.error("Conf file exists! {}", confFile);
+            return;
+        }
+
+        FileWriter fileWriter = new FileWriter(confFile);
+        try {
+            fileWriter.write(config_sdk_content);
+        } finally {
+            fileWriter.close();
+        }
     }
 
     @Override
@@ -231,21 +319,12 @@ public class ChainMakerStubFactory implements StubFactory {
         try {
             File basePath = new File(path);
             String chainName = basePath.getName();
-            String stubContent = generateStubTomlConfig(path);
-            String confFilePath = path + File.separator + "stub.toml";
-            File confFile = new File(confFilePath);
-            if (!confFile.createNewFile()) {
-                logger.error("Conf file exists! {}", confFile);
-                return;
-            }
+            // 生成 stub.toml 文件
+            generateStubToml(path);
+            // 生成 sdk_config.yml 文件
+            generate_sdk_config(path, args);
 
-            FileWriter fileWriter = new FileWriter(confFile);
-            try {
-                fileWriter.write(stubContent);
-            } finally {
-                fileWriter.close();
-            }
-
+            // 生成系统合约
             generateProxyContract(path);
             generateHubContract(path);
 
