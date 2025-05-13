@@ -5,7 +5,9 @@ import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 import org.chainmaker.pb.common.ContractOuterClass;
 import org.chainmaker.pb.common.Request;
 import org.chainmaker.pb.common.ResultOuterClass;
+import org.chainmaker.sdk.ChainClientException;
 import org.chainmaker.sdk.User;
+import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
 import org.chainmaker.sdk.utils.FileUtils;
 import org.chainmaker.sdk.utils.SdkUtils;
 
@@ -38,6 +40,25 @@ public class DeployWeCrossContract {
                 + contractName
                 + File.separator
                 + contractName + ".bin";
+
+        if(deploy) {
+            try {
+                ContractOuterClass.Contract contract = chainMakerConnection.getChainClient().getContractInfo(
+                        contractName, 10000);
+                if(contract != null) {
+                    System.out.println(
+                            "SUCCESS: The system contract "
+                                    + contractName + "(" + contract.getVersion() + ")"
+                                    + " had already been deployed. chain: " + chainPath);
+                    return;
+                }
+            } catch (ChainMakerCryptoSuiteException | ChainClientException e) {
+                String msg = e.getMessage();
+                if(msg.contains("contract not exist")) {
+                    System.out.println("The contract " + contractName + " doesn't exist.");
+                }
+            }
+        }
 
         contractBinFile = ConfigUtils.classpath2Absolute(contractBinFile);
         String version = String.valueOf(System.currentTimeMillis() / 1000);
