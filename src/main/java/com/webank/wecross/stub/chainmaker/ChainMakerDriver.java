@@ -444,48 +444,6 @@ public class ChainMakerDriver implements Driver {
                         null
                 );
             }
-
-//            try {
-//                ResultOuterClass.TxResponse chainMakerResponse = ResultOuterClass
-//                        .TxResponse.parseFrom(response.getData());
-//
-//                if(chainMakerResponse.getContractResult().getCode() == ResultOuterClass.TxStatusCode.SUCCESS.getNumber()) {
-//
-//                    // 获取区块高度
-//                    long blockNum = getBlockNumber(context.getBlockManager());
-//                    TransactionResponse transactionResponse = new TransactionResponse();
-//                    transactionResponse.setErrorCode(ResultOuterClass.TxStatusCode.SUCCESS.getNumber());
-//                    transactionResponse.setHash(chainMakerResponse.getTxId());
-//                    transactionResponse.setBlockNumber(blockNum);
-//                    transactionResponse.setMessage(chainMakerResponse.getContractResult().getMessage());
-//                    List<Object> result = new ArrayList<>();
-//                    result.add(chainMakerResponse.getContractResult().toString());
-//                    transactionResponse.setResult(result.stream().toArray(String[]::new));
-//                    callback.onTransactionResponse(null, transactionResponse);
-//                } else {
-//                    logger.warn("invoking contract was failure. resultCode: {}, txId: {}",
-//                            chainMakerResponse.getContractResult().getCode(),
-//                            chainMakerResponse.getTxId());
-//                    callback.onTransactionResponse(
-//                            new TransactionException(
-//                                    ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
-//                                    String.format("{contractResultCode: %d, contractResult: %s, txId: %s}",
-//                                            chainMakerResponse.getContractResult().getCode(),
-//                                            chainMakerResponse.getContractResult().getMessage(),
-//                                            chainMakerResponse.getTxId())),
-//                            null
-//                    );
-//                }
-//
-//            } catch (InvalidProtocolBufferException e) {
-//                logger.warn("loading chainmaker's response was failure. {}", e.getMessage());
-//                callback.onTransactionResponse(
-//                        new TransactionException(
-//                                ChainMakerStatusCode.HandleInvokeWeCrossProxyFailed,
-//                                String.format("loading chainmaker's response was failure.")),
-//                        null
-//                );
-//            }
         }
     }
 

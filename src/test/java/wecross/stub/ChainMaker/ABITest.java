@@ -1,11 +1,13 @@
 package wecross.stub.ChainMaker;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.webank.wecross.stub.chainmaker.abi.ABICodec;
 import com.webank.wecross.stub.chainmaker.abi.wrapper.*;
 import com.webank.wecross.stub.chainmaker.config.ChainMakerStubConfigParser;
 import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 
 import org.web3j.crypto.Hash;
+import org.web3j.protocol.core.methods.response.AbiDefinition;
 import org.web3j.utils.Numeric;
 
 import org.junit.Test;
@@ -839,10 +841,59 @@ public class ABITest {
             ABIObject abiOutputObject = ABIObjectFactory.createOutputObject(function);
             ABICodecObject abiCodecObject = new ABICodecObject();
             List<Object> decodeObject = abiCodecObject.decodeJavaObject(abiOutputObject, output);
-            String decodedStr = decodeObject.toString();
+
+            // 合并字段和值
+            List<ABIDefinition.NamedType> outputs = function.getOutputs();
+            Map<String, Object> finalResult = mergeOutputResult(outputs, decodeObject);
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            String decodedStr = objectMapper.writeValueAsString(finalResult);
             System.out.println(decodedStr);
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
+    }
+
+    private Map<String, Object>  mergeOutputResult(
+            List<ABIDefinition.NamedType> outputs,
+            List<Object> decodeResults) {
+        Map<String, Object> finalOutput = new HashMap<>();
+
+        for(int i = 0; i < outputs.size(); i++) {
+            Object decodeResult = decodeResults.get(i);
+            ABIDefinition.NamedType output = outputs.get(i);
+            if(output.getType().equals("tuple")) {
+                fillTupleType(decodeResult, output, finalOutput);
+            } else {
+                fillOtherType(decodeResult, output, finalOutput);
+            }
+        }
+
+        return finalOutput;
+    }
+
+    private void fillTupleType(
+            Object object,
+            ABIDefinition.NamedType namedType,
+            Map<String, Object> finalOutput) {
+        List<Object> objects = (List<Object>) object;
+        List<ABIDefinition.NamedType> components = namedType.getComponents();
+        for(int i = 0; i < components.size(); i++) {
+            ABIDefinition.NamedType comp = components.get(i);
+            if (comp.getType().equals("tuple")) {
+                Map<String, Object> struct = new HashMap<>();
+                fillTupleType(objects.get(i), comp, struct);
+                finalOutput.put(comp.getName(), struct);
+            } else {
+                fillOtherType(objects.get(i), comp, finalOutput);
+            }
+        }
+    }
+
+    private void fillOtherType(
+            Object object,
+            ABIDefinition.NamedType namedType,
+            Map<String, Object> finalOutput) {
+        finalOutput.put(namedType.getName(), object);
     }
 }

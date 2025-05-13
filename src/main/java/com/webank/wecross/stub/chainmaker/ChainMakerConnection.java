@@ -1,5 +1,6 @@
 package com.webank.wecross.stub.chainmaker;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.webank.wecross.stub.*;
 
@@ -382,7 +383,7 @@ public class ChainMakerConnection implements Connection {
             Map<String, byte[]> params = new HashMap<>();
             String abiContent = "";
 
-            if (args.length > 1 && args.length % 2 != 0) {
+            if (args != null && args.length > 1 && args.length % 2 != 0) {
                 response.setErrorCode(ChainMakerStatusCode.InnerError);
                 response.setErrorMessage("参数格式错误，需按 key1 value1 key2 value2 形式组织参数");
                 callback.onResponse(response);
@@ -392,9 +393,12 @@ public class ChainMakerConnection implements Connection {
             Function function = null;
             if (contractInfo.getRuntimeType().name().equals("DOCKER_GO")) {
                 logger.info("DOCKER_GO call {} {}", method, args);
-                for(int i = 0; i < args.length; i+=2) {
-                    params.put(args[i], args[i + 1].getBytes(StandardCharsets.UTF_8));
+                if (args != null) {
+                    for(int i = 0; i < args.length; i+=2) {
+                        params.put(args[i], args[i + 1].getBytes(StandardCharsets.UTF_8));
+                    }
                 }
+
                 if (params.isEmpty()) {
                     params = null;
                 }
@@ -452,16 +456,21 @@ public class ChainMakerConnection implements Connection {
                     ABIObject abiOutputObject = ABIObjectFactory.createOutputObject(abiDefinition);
                     ABICodecObject abiCodecObject = new ABICodecObject();
                     List<Object> decodeObject = abiCodecObject.decodeJavaObject(abiOutputObject, hexOutput);
-                    result.put("data", decodeObject.toString().getBytes(StandardCharsets.UTF_8));
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    Map<String, Object> finalResult = mergeOutputResult(abiDefinition.getOutputs(), decodeObject);
+                    result.put("data", objectMapper.writeValueAsString(finalResult));
                 } else {
                     result.put("data", responseInfo.getContractResult().getResult().toStringUtf8());
                 }
-
+                response.setData(Serialization.serialize(result));
             } else {
                 response.setErrorCode(ChainMakerStatusCode.ContractResultFailed);
-                result.put("data", "");
+                if (contractInfo.getRuntimeType().name().equals("DOCKER_GO")) {
+                    response.setErrorMessage(responseInfo.getContractResult().getResult().toStringUtf8());
+                } else if (contractInfo.getRuntimeType().name().equals("EVM")) {
+                    response.setErrorMessage(responseInfo.getContractResult().getResult().toStringUtf8());
+                }
             }
-            response.setData(Serialization.serialize(result));
         } catch (IOException | ClassNotFoundException e) {
             String errorMsg = String.format("反序列化请求对象失败。 %s", e.getMessage());
             logger.error(errorMsg);
@@ -480,6 +489,50 @@ public class ChainMakerConnection implements Connection {
         }
         callback.onResponse(response);
     }
+
+    private Map<String, Object>  mergeOutputResult(
+            List<ABIDefinition.NamedType> outputs,
+            List<Object> decodeResults) {
+        Map<String, Object> finalOutput = new HashMap<>();
+
+        for(int i = 0; i < outputs.size(); i++) {
+            Object decodeResult = decodeResults.get(i);
+            ABIDefinition.NamedType output = outputs.get(i);
+            if(output.getType().equals("tuple")) {
+                fillTupleType(decodeResult, output, finalOutput);
+            } else {
+                fillOtherType(decodeResult, output, finalOutput);
+            }
+        }
+
+        return finalOutput;
+    }
+
+    private void fillTupleType(
+            Object object,
+            ABIDefinition.NamedType namedType,
+            Map<String, Object> finalOutput) {
+        List<Object> objects = (List<Object>) object;
+        List<ABIDefinition.NamedType> components = namedType.getComponents();
+        for(int i = 0; i < components.size(); i++) {
+            ABIDefinition.NamedType comp = components.get(i);
+            if (comp.getType().equals("tuple")) {
+                Map<String, Object> struct = new HashMap<>();
+                fillTupleType(objects.get(i), comp, struct);
+                finalOutput.put(comp.getName(), struct);
+            } else {
+                fillOtherType(objects.get(i), comp, finalOutput);
+            }
+        }
+    }
+
+    private void fillOtherType(
+            Object object,
+            ABIDefinition.NamedType namedType,
+            Map<String, Object> finalOutput) {
+        finalOutput.put(namedType.getName(), object);
+    }
+
     private void handleGetContractListRequest(Request request, Callback callback) {
         Response response = new Response();
         try {
