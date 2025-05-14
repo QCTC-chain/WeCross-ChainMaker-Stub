@@ -153,6 +153,7 @@ public class ChainMakerConnection implements Connection {
                             Map<String, Object> result = new HashMap<>();
                             result.put("block_height", eventInfo.getBlockHeight());
                             result.put("chain_id", eventInfo.getChainId());
+                            result.put("path", context.getPath().toString());
                             result.put("topic", eventInfo.getTopic());
                             result.put("contract_name", eventInfo.getContractName());
                             result.put("contract_version", eventInfo.getContractVersion());
