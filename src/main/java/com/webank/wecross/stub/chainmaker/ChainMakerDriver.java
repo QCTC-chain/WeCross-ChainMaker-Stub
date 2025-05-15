@@ -16,8 +16,8 @@ import com.webank.wecross.stub.chainmaker.custom.CommandHandlerDispatcher;
 import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 import com.webank.wecross.stub.chainmaker.utils.FunctionUtility;
 import com.webank.wecross.stub.chainmaker.utils.Serialization;
+import com.webank.wecross.stub.chainmaker.utils.Web3jFunctionBuilder;
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.bouncycastle.util.encoders.Hex;
 import org.chainmaker.pb.common.ChainmakerBlock;
 import org.chainmaker.pb.common.ChainmakerTransaction;
 import org.chainmaker.pb.common.ContractOuterClass;
@@ -34,6 +34,7 @@ import org.web3j.abi.datatypes.*;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -118,13 +119,51 @@ public class ChainMakerDriver implements Driver {
     ) {
         Path path = context.getPath();
         ChainMakerConnection chainMakerConnection = (ChainMakerConnection)connection;
+        ContractOuterClass.RuntimeType runtimeType = ContractOuterClass.RuntimeType.valueOf(request.getArgs()[0]);
         byte[] contractBinary = request.getArgs()[1].getBytes();
         String contractABIContent = request.getArgs()[2];
         String contractName = request.getArgs()[3];
         String version = request.getArgs()[4];
-        List<User> users = (List<User>)request.getOptions().get("EndorsementEntries");
+        int leftSize = request.getArgs().length - 5;
+        if(leftSize > 0 && (leftSize % 2) != 0) {
+            callback.onTransactionResponse(
+                    new TransactionException(
+                            ChainMakerStatusCode.HandleDeployContract,
+                            String.format("%s合约的参数不匹配。", deploy ? "部署" : "升级")),
+                    null
+            );
+            return;
+        }
+
         try {
-            ConfigUtils.writeContractABI(chainMakerConnection.getConfigPath(), path.getResource(), contractABIContent);
+            Map<String, byte[]> params = new HashMap<>();
+            if (runtimeType == ContractOuterClass.RuntimeType.DOCKER_GO) {
+                for(int i = 5; i < request.getArgs().length; i+=2) {
+                    params.put(request.getArgs()[i], request.getArgs()[i + 1].getBytes(StandardCharsets.UTF_8));
+                }
+
+                if (params.isEmpty()) {
+                    params = null;
+                }
+            } else if (runtimeType == ContractOuterClass.RuntimeType.EVM) {
+                if(contractABIContent.isEmpty()) {
+                    callback.onTransactionResponse(
+                            new TransactionException(
+                                    ChainMakerStatusCode.HandleDeployContract,
+                                    "缺少合约 ABI"),
+                            null
+                    );
+                    return;
+                }
+                ConfigUtils.writeContractABI(chainMakerConnection.getConfigPath(), path.getResource(), contractABIContent);
+                Web3jFunctionBuilder builder = new Web3jFunctionBuilder();
+                Function constructor = builder.buildFunctionFromAbi(
+                        contractABIContent,
+                        "constructor",
+                        Arrays.copyOfRange(request.getArgs(), 5, request.getArgs().length));
+                String callData = FunctionEncoder.encodeConstructor(constructor.getInputParameters());
+                params.put("data", callData.getBytes(StandardCharsets.UTF_8));
+            }
 
             org.chainmaker.pb.common.Request.Payload payload = null;
             if(deploy) {
@@ -133,15 +172,17 @@ public class ChainMakerDriver implements Driver {
                         .createContractCreatePayload(
                                 contractName,
                                 version,
-                                contractBinary, ContractOuterClass.RuntimeType.EVM, null);
+                                contractBinary, runtimeType, params);
             } else {
                 payload = chainMakerConnection
                         .getChainClient()
                         .createContractUpgradePayload(
                                 contractName,
                                 version,
-                                contractBinary, ContractOuterClass.RuntimeType.EVM, null);
+                                contractBinary, runtimeType, params);
             }
+
+            List<User> users = (List<User>)request.getOptions().get("EndorsementEntries");
             org.chainmaker.pb.common.Request.EndorsementEntry[] endorsementEntries = SdkUtils.getEndorsers(
                     payload, users.stream().toArray(User[]::new));
 
@@ -153,6 +194,7 @@ public class ChainMakerDriver implements Driver {
             resourceInfo.getProperties().put(ChainMakerConstant.CHAINMAKER_ENDORSEMENTENTRY, endorsementEntries);
             resourceInfo.getProperties().put(ChainMakerConstant.CHAINMAKER_CONTRACT_NAME, contractName);
             resourceInfo.getProperties().put(ChainMakerConstant.CHAINMAKER_CONTRACT_VERSION, version);
+            resourceInfo.getProperties().put(ChainMakerConstant.CHAINMAKER_CONTRACT_RUNTIME_TYPE, runtimeType.name());
             weCrossRequest.setResourceInfo(resourceInfo);
 
             chainMakerConnection.asyncSend(

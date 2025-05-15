@@ -173,6 +173,7 @@ public class ChainMakerConnection implements Connection {
                             resourceProperties.put(
                                     ChainMakerConstant.CHAINMAKER_CONTRACT_VERSION,
                                     contract.getVersion());
+                            resourceProperties.put(ChainMakerConstant.CHAINMAKER_CONTRACT_RUNTIME_TYPE, contract.getRuntimeType().name());
                             resourceInfo.setProperties(resourceProperties);
                             resourceInfos.add(resourceInfo);
                         } catch (InvalidProtocolBufferException e) {
@@ -531,6 +532,9 @@ public class ChainMakerConnection implements Connection {
                     resourceProperties.put(
                             ChainMakerConstant.CHAINMAKER_CONTRACT_VERSION,
                             contractVersion);
+                    resourceProperties.put(
+                            ChainMakerConstant.CHAINMAKER_CONTRACT_RUNTIME_TYPE,
+                            resourceInfo.getProperties().get(ChainMakerConstant.CHAINMAKER_CONTRACT_RUNTIME_TYPE));
                     resourceInfo.setProperties(resourceProperties);
                     this.connectionEventHandler.onANewResource(resourceInfo);
                 }

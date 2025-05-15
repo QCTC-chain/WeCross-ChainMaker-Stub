@@ -165,6 +165,9 @@ public class Web3jFunctionBuilder {
             if ("function".equals(ad.getType()) && functionName.equals(ad.getName())) {
                 targetFunctionAbi = ad;
                 break;
+            } else if("constructor".equals(ad.getType()) && functionName.equals("constructor")) {
+                targetFunctionAbi = ad;
+                break;
             }
         }
 

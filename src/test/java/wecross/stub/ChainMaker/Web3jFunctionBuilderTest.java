@@ -629,13 +629,112 @@ public class Web3jFunctionBuilderTest {
             for (org.web3j.abi.TypeReference<?> outParam : web3jFunctionCreate.getOutputParameters()) {
                 System.out.println("  TypeReference Class: " + outParam.getClassType().getCanonicalName());
             }
+
             // To get the encoded function call data:
-             String encodedFunctionCall = org.web3j.abi.FunctionEncoder.encode(web3jFunctionCreate);
-             System.out.println("Encoded function call: " + encodedFunctionCall);
+            String encodedFunctionCall = org.web3j.abi.FunctionEncoder.encode(web3jFunctionCreate);
+            System.out.println("Encoded function call: " + encodedFunctionCall);
 
         } catch (IOException | ClassNotFoundException e) {
             System.err.println("Error building function 'createEvidence': " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    @Test
+    public void constructorEvmContractTest() {
+        String contractAbiJson = "[\n" +
+                "\t{\n" +
+                "\t\t\"inputs\": [\n" +
+                "\t\t\t{\n" +
+                "\t\t\t\t\"internalType\": \"uint256\",\n" +
+                "\t\t\t\t\"name\": \"batch_size\",\n" +
+                "\t\t\t\t\"type\": \"uint256\"\n" +
+                "\t\t\t}\n" +
+                "\t\t],\n" +
+                "\t\t\"stateMutability\": \"nonpayable\",\n" +
+                "\t\t\"type\": \"constructor\"\n" +
+                "\t},\n" +
+                "\t{\n" +
+                "\t\t\"inputs\": [\n" +
+                "\t\t\t{\n" +
+                "\t\t\t\t\"internalType\": \"string\",\n" +
+                "\t\t\t\t\"name\": \"data_id\",\n" +
+                "\t\t\t\t\"type\": \"string\"\n" +
+                "\t\t\t},\n" +
+                "\t\t\t{\n" +
+                "\t\t\t\t\"internalType\": \"string\",\n" +
+                "\t\t\t\t\"name\": \"version\",\n" +
+                "\t\t\t\t\"type\": \"string\"\n" +
+                "\t\t\t},\n" +
+                "\t\t\t{\n" +
+                "\t\t\t\t\"components\": [\n" +
+                "\t\t\t\t\t{\n" +
+                "\t\t\t\t\t\t\"internalType\": \"string\",\n" +
+                "\t\t\t\t\t\t\"name\": \"c1\",\n" +
+                "\t\t\t\t\t\t\"type\": \"string\"\n" +
+                "\t\t\t\t\t},\n" +
+                "\t\t\t\t\t{\n" +
+                "\t\t\t\t\t\t\"internalType\": \"string\",\n" +
+                "\t\t\t\t\t\t\"name\": \"c2\",\n" +
+                "\t\t\t\t\t\t\"type\": \"string\"\n" +
+                "\t\t\t\t\t},\n" +
+                "\t\t\t\t\t{\n" +
+                "\t\t\t\t\t\t\"internalType\": \"string\",\n" +
+                "\t\t\t\t\t\t\"name\": \"c3\",\n" +
+                "\t\t\t\t\t\t\"type\": \"string\"\n" +
+                "\t\t\t\t\t},\n" +
+                "\t\t\t\t\t{\n" +
+                "\t\t\t\t\t\t\"internalType\": \"string\",\n" +
+                "\t\t\t\t\t\t\"name\": \"c4\",\n" +
+                "\t\t\t\t\t\t\"type\": \"string\"\n" +
+                "\t\t\t\t\t},\n" +
+                "\t\t\t\t\t{\n" +
+                "\t\t\t\t\t\t\"internalType\": \"uint256\",\n" +
+                "\t\t\t\t\t\t\"name\": \"datetime\",\n" +
+                "\t\t\t\t\t\t\"type\": \"uint256\"\n" +
+                "\t\t\t\t\t},\n" +
+                "\t\t\t\t\t{\n" +
+                "\t\t\t\t\t\t\"internalType\": \"string\",\n" +
+                "\t\t\t\t\t\t\"name\": \"format\",\n" +
+                "\t\t\t\t\t\t\"type\": \"string\"\n" +
+                "\t\t\t\t\t},\n" +
+                "\t\t\t\t\t{\n" +
+                "\t\t\t\t\t\t\"internalType\": \"string\",\n" +
+                "\t\t\t\t\t\t\"name\": \"content\",\n" +
+                "\t\t\t\t\t\t\"type\": \"string\"\n" +
+                "\t\t\t\t\t}\n" +
+                "\t\t\t\t],\n" +
+                "\t\t\t\t\"internalType\": \"struct VerifiableDataStore.DataEntity\",\n" +
+                "\t\t\t\t\"name\": \"data_entity\",\n" +
+                "\t\t\t\t\"type\": \"tuple\"\n" +
+                "\t\t\t}\n" +
+                "\t\t],\n" +
+                "\t\t\"name\": \"add\",\n" +
+                "\t\t\"outputs\": [\n" +
+                "\t\t\t{\n" +
+                "\t\t\t\t\"internalType\": \"bytes32\",\n" +
+                "\t\t\t\t\"name\": \"\",\n" +
+                "\t\t\t\t\"type\": \"bytes32\"\n" +
+                "\t\t\t}\n" +
+                "\t\t],\n" +
+                "\t\t\"stateMutability\": \"nonpayable\",\n" +
+                "\t\t\"type\": \"function\"\n" +
+                "\t}\n" +
+                "]";
+
+        Web3jFunctionBuilder builder = new Web3jFunctionBuilder();
+
+        String[] inputValuesCreate = {"batch_size", "5"};
+        try {
+            Function constructor = builder.buildFunctionFromAbi(
+                    contractAbiJson, "constructor",
+                    inputValuesCreate);
+            String callData = org.web3j.abi.FunctionEncoder.encodeConstructor(constructor.getInputParameters());
+            System.out.println(callData);
+        } catch (IOException e) {
+            System.err.println("Error building function 'createEvidence': " + e.getMessage());
+            e.printStackTrace();
+        }
+
     }
 }
