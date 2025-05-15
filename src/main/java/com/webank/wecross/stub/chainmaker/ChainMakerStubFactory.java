@@ -13,6 +13,7 @@ import com.webank.wecross.stub.chainmaker.account.ChainMakerAccountFactory;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.custom.CommandHandlerDispatcher;
 import com.webank.wecross.stub.chainmaker.custom.DeployContractHandler;
+import com.webank.wecross.stub.chainmaker.custom.RegisterContractHandler;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,18 +53,23 @@ public class ChainMakerStubFactory implements StubFactory {
             logger.warn("stubConfigPath is empty.");
             return null;
         }
-        ChainMakerDriver driver = new ChainMakerDriver();
 
+        CommandHandlerDispatcher commandHandlerDispatcher = new CommandHandlerDispatcher();
+        ChainMakerDriver driver = new ChainMakerDriver();
         DeployContractHandler deployContractHandler = DeployContractHandler.build(stubConfigPath, "stub.toml");
         deployContractHandler.setDriver(driver);
 
-        CommandHandlerDispatcher commandHandlerDispatcher = new CommandHandlerDispatcher();
         commandHandlerDispatcher.registerCommandHandler(
                 ChainMakerConstant.CUSTOM_COMMAND_DEPLOY_CONTRACT,
                 deployContractHandler);
         commandHandlerDispatcher.registerCommandHandler(
                 ChainMakerConstant.CUSTOM_COMMAND_UPGRADE_CONTRACT,
                 deployContractHandler);
+
+        RegisterContractHandler registerContractHandler = new RegisterContractHandler();
+        commandHandlerDispatcher.registerCommandHandler(
+                ChainMakerConstant.CUSTOM_COMMAND_REGISTER_CONTRACT,
+                registerContractHandler);
 
         driver.setCommandHandlerDispatcher(commandHandlerDispatcher);
 

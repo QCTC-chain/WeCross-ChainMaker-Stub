@@ -2,7 +2,6 @@ package com.webank.wecross.stub.chainmaker.custom;
 
 import com.webank.wecross.exception.WeCrossException;
 import com.webank.wecross.stub.*;
-import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerStatusCode;
 import com.webank.wecross.stub.chainmaker.config.ChainMakerStubConfigParser;
 import com.webank.wecross.stub.chainmaker.config.EndorsementEntry;

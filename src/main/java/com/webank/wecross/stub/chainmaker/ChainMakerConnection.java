@@ -100,6 +100,10 @@ public class ChainMakerConnection implements Connection {
         this.connectionEventHandler = eventHandler;
     }
 
+    public ConnectionEventHandler getConnectionEventHandler() {
+        return this.connectionEventHandler;
+    }
+
     @Override
     public Map<String, String> getProperties() {
         logger.info("getProperties: {}", properties);
