@@ -506,23 +506,31 @@ public class ChainMakerDriver implements Driver {
         String contractName = context.getPath().getResource();
         String topic = request.getTopics().get(0).trim();
         try {
-            long fromBlockNumber = request.getFromBlockNumber();
-            long toBlockNumber = request.getToBlockNumber();
-            chainMakerConnection.addSubscriber(
-                    context,
-                    contractName,
-                    topic,
-                    fromBlockNumber,
-                    toBlockNumber);
             TransactionResponse response = new TransactionResponse();
-            response.setMessage(String.format("订阅成功"));
-            List<String> result = new ArrayList<>();
-            result.add(String.format("path:%s", context.getPath()));
-            result.add(String.format("topics:%s", topic));
-            result.add(String.format("raw topics:%s", request.getTopics().get(0)));
-            result.add(String.format("from:%d", fromBlockNumber));
-            result.add(String.format("to:%d", toBlockNumber));
-            response.setResult(result.stream().toArray(String[]::new));
+            if("@cancel".equals(topic)) {
+                String subscriberId = request.getTopics().get(1).trim();
+                chainMakerConnection.cancelSubscriber(subscriberId);
+                response.setMessage(String.format("订阅事件取消成功。%s", subscriberId));
+            } else {
+                long fromBlockNumber = request.getFromBlockNumber();
+                long toBlockNumber = request.getToBlockNumber();
+                String subscriberId = chainMakerConnection.addSubscriber(
+                        context,
+                        contractName,
+                        topic,
+                        fromBlockNumber,
+                        toBlockNumber);
+
+                response.setMessage(subscriberId);
+                List<String> result = new ArrayList<>();
+                result.add(String.format("path:%s", context.getPath()));
+                result.add(String.format("topics:%s", topic));
+                result.add(String.format("raw topics:%s", request.getTopics().get(0)));
+                result.add(String.format("from:%d", fromBlockNumber));
+                result.add(String.format("to:%d", toBlockNumber));
+                response.setResult(result.stream().toArray(String[]::new));
+            }
+
             callback.onTransactionResponse(null, response);
 
         } catch (ChainClientException e) {

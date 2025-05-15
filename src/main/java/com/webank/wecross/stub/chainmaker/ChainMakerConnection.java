@@ -10,6 +10,7 @@ import com.webank.wecross.stub.chainmaker.common.BlockUtility;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerRequestType;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerStatusCode;
+import com.webank.wecross.stub.chainmaker.subsriber.ContractEventManager;
 import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 
 import com.webank.wecross.stub.chainmaker.utils.FunctionUtility;
@@ -44,7 +45,7 @@ import java.util.concurrent.ExecutionException;
 
 public class ChainMakerConnection implements Connection {
     private Logger logger = LoggerFactory.getLogger(ChainMakerConnection.class);
-    private static final long RPC_CALL_TIMEOUT = 5000;
+    public static final long RPC_CALL_TIMEOUT = 5000;
     private ChainClient chainClient;
     private String configPath;
     private ConnectionEventHandler connectionEventHandler = null;
@@ -52,11 +53,11 @@ public class ChainMakerConnection implements Connection {
     private Map<String, String> properties = new HashMap<>();
 
     private final CompletableFuture<Boolean> getContractListFuture = new CompletableFuture<>();
-
-    private Map<String, StreamObserver<ResultOuterClass.SubscribeResult>> subscribers = new HashMap<>();
+    private ContractEventManager contractEventManager;
 
     public ChainMakerConnection(ChainClient chainClient) {
         this.chainClient = chainClient;
+        this.contractEventManager = new ContractEventManager(this);
     }
 
     public ChainClient getChainClient() {
@@ -114,13 +115,12 @@ public class ChainMakerConnection implements Connection {
         final byte[] hash = Hash.sha3(input);
         return Numeric.cleanHexPrefix(Numeric.toHexString(hash));
     }
-    public StreamObserver<ResultOuterClass.SubscribeResult> addSubscriber(
+    public String addSubscriber(
             TransactionContext context,
             String contract,
             String topic,
             long from,
             long to) throws ChainClientException, ChainMakerCryptoSuiteException {
-        String rawTopic = topic;
         if(topic.equals("*")
                 || (topic.length() == 2 && topic.charAt(0) == '\'' && topic.charAt(1) == '\'')
                 || (topic.length() == 2 && topic.charAt(0) == '"' && topic.charAt(1) == '"')) {
@@ -131,80 +131,11 @@ public class ChainMakerConnection implements Connection {
                 topic = stringToTopic(topic);
             }
         }
-        String key = String.format("%s-%s-%d-%d", contract, topic, from, to);
-        StreamObserver<ResultOuterClass.SubscribeResult> subscriber = subscribers.getOrDefault(
-                key, null);
-        if (subscriber == null) {
-            subscriber = new StreamObserver<ResultOuterClass.SubscribeResult>() {
-                // refer to:
-                // https://git.chainmaker.org.cn/chainmaker/sdk-java/-/blob/master/src/test/java/org/chainmaker/sdk/TestSubscribe.java
-                @Override
-                public void onNext(ResultOuterClass.SubscribeResult value) {
-                    try {
-                        ResultOuterClass.ContractEventInfoList contract = ResultOuterClass
-                                .ContractEventInfoList
-                                .parseFrom(value.getData());
-                        int count = contract.getContractEventsCount();
-                        for (int i = 0; i < count; i++) {
-                            ResultOuterClass.ContractEventInfo eventInfo = contract.getContractEvents(i);
+        return contractEventManager.addSubscriber(context, topic, from, to);
+    }
 
-                            logger.info("contract event: {}", eventInfo);
-
-                            Map<String, Object> result = new HashMap<>();
-                            result.put("block_height", eventInfo.getBlockHeight());
-                            result.put("chain_id", eventInfo.getChainId());
-                            result.put("path", context.getPath().toString());
-                            result.put("topic", eventInfo.getTopic());
-                            result.put("contract_name", eventInfo.getContractName());
-                            result.put("contract_version", eventInfo.getContractVersion());
-
-                            ContractOuterClass.Contract contractInfo = chainClient.getContractInfo(eventInfo.getContractName(), RPC_CALL_TIMEOUT);
-                            if (contractInfo.getRuntimeType().name().equals("DOCKER_GO")) {
-                                result.put("event_data", eventInfo.getEventDataList());
-                            } else if (contractInfo.getRuntimeType().name().equals("EVM")) {
-                                String abiContent = "";
-                                try {
-                                    abiContent = ConfigUtils.getContractABI(
-                                            getConfigPath(),
-                                            eventInfo.getContractName());
-                                } catch (Exception e) {
-                                    logger.error("获取 ABI 失败。 {}/{}",
-                                            getConfigPath(), eventInfo.getContractName());
-                                }
-                                logger.info("获取 ABI 数据: {}", abiContent.length());
-
-                                if (!abiContent.isEmpty()) {
-                                    ABICodec abiCodec = new ABICodec();
-                                    Map<String, Object> decodedData = abiCodec.decodeEvent(abiContent, eventInfo);
-                                    result.put("event_data", decodedData);
-                                }
-                            }
-                            context.getCallback().onSubscribe(
-                                    eventInfo.getContractName(),
-                                    rawTopic,
-                                    result);
-                        }
-                    } catch (InvalidProtocolBufferException e) {
-                        logger.error("处理订阅事件 {}:{} 失败。{}", contract, rawTopic, e.getMessage());
-                    } catch (ChainMakerCryptoSuiteException | ChainClientException e) {
-                        logger.error("获取合约 {} 信息 失败。{}", contract, e.getMessage());
-                    }
-                }
-
-                @Override
-                public void onError(Throwable t) {
-                    logger.error("处理订阅事件 {}:{} 失败。{}", contract, rawTopic, t.getMessage());
-                }
-
-                @Override
-                public void onCompleted() {
-
-                }
-            };
-            subscribers.put(key, subscriber);
-            this.chainClient.subscribeContractEvent(from, to, topic, contract, subscriber);
-        }
-        return subscriber;
+    public void cancelSubscriber(String subscriberId) {
+        contractEventManager.cancelSubscriber(subscriberId);
     }
 
     public List<ResourceInfo> getResources() {

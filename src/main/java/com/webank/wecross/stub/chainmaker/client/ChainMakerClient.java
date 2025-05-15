@@ -25,7 +25,7 @@ public class ChainMakerClient {
 
     private static ChainManager chainManager;
 
-    private static SdkConfig loadConfig(String stubConfigPath, String configName) throws Exception {
+    public static SdkConfig loadConfig(String stubConfigPath, String configName) throws Exception {
         if (stubConfigPath.contains("classpath:")) {
             stubConfigPath = ConfigUtils.classpath2Absolute(stubConfigPath);
         }
