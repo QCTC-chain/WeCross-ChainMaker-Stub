@@ -402,11 +402,9 @@ public class ChainMakerConnection implements Connection {
                 response.setData(Serialization.serialize(result));
             } else {
                 response.setErrorCode(ChainMakerStatusCode.ContractResultFailed);
-                if (contractInfo.getRuntimeType().name().equals("DOCKER_GO")) {
-                    response.setErrorMessage(responseInfo.getContractResult().getResult().toStringUtf8());
-                } else if (contractInfo.getRuntimeType().name().equals("EVM")) {
-                    response.setErrorMessage(responseInfo.getContractResult().getResult().toStringUtf8());
-                }
+                String message = responseInfo.getContractResult().getMessage();
+                String contractResult = responseInfo.getContractResult().getResult().toStringUtf8();
+                response.setErrorMessage(String.format("message: %s, result: %s", message, contractResult));
             }
         } catch (IOException | ClassNotFoundException e) {
             String errorMsg = String.format("反序列化请求对象失败。 %s", e.getMessage());
