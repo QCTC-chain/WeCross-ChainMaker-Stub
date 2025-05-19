@@ -1,5 +1,7 @@
 package com.webank.wecross.stub.chainmaker.subsriber;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.webank.wecross.stub.TransactionContext;
 import com.webank.wecross.stub.chainmaker.ChainMakerConnection;
@@ -184,15 +186,18 @@ public class ContractEventManager {
                                 result.put("event_data", decodedData);
                             }
                         }
+                        ObjectMapper objectMapper = new ObjectMapper();
                         context.getCallback().onSubscribe(
                                 eventInfo.getContractName(),
                                 topic,
-                                result);
+                                objectMapper.writeValueAsString(result));
                     }
                 } catch (InvalidProtocolBufferException e) {
                     logger.error("处理订阅事件 {}:{} 失败。{}", context.getPath().getResource(), topic, e.getMessage());
                 } catch (ChainMakerCryptoSuiteException | ChainClientException e) {
                     logger.error("获取合约 {} 信息 失败。{}", context.getPath().getResource(), e.getMessage());
+                } catch (JsonProcessingException e) {
+                    logger.error("处理订阅事件结果失败 {}:{}。{}", context.getPath().getResource(), topic, e.getMessage());
                 }
             }
 
