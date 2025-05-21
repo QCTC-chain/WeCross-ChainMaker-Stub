@@ -292,4 +292,40 @@ public class ChainMakerStubTest {
         String topic = Numeric.toHexString(bytes);
         System.out.println(topic);
     }
+
+    @Test
+    public void generateConnectionTest() {
+        ChainMakerStubFactory factory = new ChainMakerStubFactory("ChainMakerGMWithCert");
+        String path = "/Users/dbliu/Desktop/chainmaker";
+        String stubConfig = "{\n" +
+                "  \"chainClient\": {\n" +
+                "    \"chainId\": \"onechain\",\n" +
+                "    \"orgId\": \"digital\",\n" +
+                "    \"nodes\": {\n" +
+                "      \"address\": \"127.0.0.1:12301\",\n" +
+                "      \"enableTLS\": true\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"organizations\": [\n" +
+                "    {\n" +
+                "      \"orgId\": \"digital\",\n" +
+                "      \"orgName\": \"数字化部\",\n" +
+                "      \"signCert\": \"signCertOssId\",\n" +
+                "      \"signKey\": \"signKeyOssId\",\n" +
+                "      \"users\": [\n" +
+                "        {\n" +
+                "          \"id\": \"lxm\",\n" +
+                "          \"name\": \"lxm\",\n" +
+                "          \"signCert\": \"oss://signcert\",\n" +
+                "          \"signKey\": \"oss://signKey\",\n" +
+                "          \"tlsCert\": \"oss://tlsCert\",\n" +
+                "          \"tlsKey\": \"oss://tlsKey\"\n" +
+                "        }\n" +
+                "      ]\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+        String[] args = new String[] {"ChainMakerGMWithCert", "chainmaker", stubConfig};
+        factory.generateConnection(path, args);
+    }
 }
