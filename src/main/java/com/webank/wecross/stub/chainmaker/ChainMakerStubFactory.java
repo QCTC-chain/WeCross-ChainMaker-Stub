@@ -11,6 +11,7 @@ import com.webank.wecross.stub.WeCrossContext;
 import com.webank.wecross.stub.chainmaker.account.ChainMakerAccountFactory;
 
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
+import com.webank.wecross.stub.chainmaker.config.AddChainStubConfig;
 import com.webank.wecross.stub.chainmaker.custom.CommandHandlerDispatcher;
 import com.webank.wecross.stub.chainmaker.custom.DeployContractHandler;
 import com.webank.wecross.stub.chainmaker.custom.RegisterContractHandler;
@@ -251,7 +252,72 @@ public class ChainMakerStubFactory implements StubFactory {
         }
     }
 
-    private void generate_sdk_config(String path, String[] args) throws IOException {
+    private void writeContent(File file, String content) throws IOException {
+        if (!file.createNewFile()) {
+            logger.error("Conf file exists! {}", file);
+            return;
+        }
+
+        FileWriter fileWriter = new FileWriter(file);
+        try {
+            fileWriter.write(content);
+        } finally {
+            fileWriter.close();
+        }
+    }
+
+    private void saveCertsAndKeys(String path, AddChainStubConfig stubConfig) throws IOException {
+        for(AddChainStubConfig.Organization organization: stubConfig.organizations) {
+            File orgIdPath = new File(path
+                    + File.separator + "certs"
+                    + File.separator + organization.orgId);
+            if(!orgIdPath.exists()) {
+                orgIdPath.mkdirs();
+            }
+            File caPath = new File(orgIdPath + File.separator + "ca");
+            if(!caPath.exists()) {
+                caPath.mkdirs();
+            }
+            File caCert = new File(caPath + File.separator + "ca.crt");
+            writeContent(caCert, organization.signCert);
+            File caKey = new File(caPath + File.separator + "ca.key");
+            writeContent(caKey, organization.signKey);
+
+            for(AddChainStubConfig.User user: organization.users) {
+                File userPath = new File(orgIdPath
+                        + File.separator + "user"
+                        + File.separator + user.id);
+                if (!userPath.exists()) {
+                    userPath.mkdirs();
+                }
+
+                File userSignPath = new File(userPath + File.separator + "sign");
+                if(!userSignPath.exists()) {
+                    userSignPath.mkdirs();
+                }
+                File userSignCertFile = new File(userSignPath
+                        + File.separator + String.format("%s.sign.crt", user.id));
+                writeContent(userSignCertFile, user.signCert);
+                File userSignKeyFile = new File(userSignPath
+                        + File.separator + String.format("%s.sign.key", user.id));
+                writeContent(userSignKeyFile, user.signKey);
+
+                File userTLSPath = new File(userPath + File.separator + "tls");
+                if(!userTLSPath.exists()) {
+                    userTLSPath.mkdirs();
+                }
+
+                File userTLSCertFile = new File(userTLSPath
+                        + File.separator + String.format("%s.tls.crt", user.id));
+                writeContent(userTLSCertFile, user.tlsCert);
+                File userTLSKeyFile = new File(userTLSPath
+                        + File.separator + String.format("%s.tls.key", user.id));
+                writeContent(userTLSKeyFile, user.tlsKey);
+            }
+        }
+    }
+
+    private void generate_sdk_config(String path, AddChainStubConfig stubConfig) throws IOException {
         String sdk_config_template = "chain_client:\n" +
                 "  chain_id: %s\n" +
                 "  org_id: %s\n" +
@@ -277,11 +343,10 @@ public class ChainMakerStubFactory implements StubFactory {
                 "  pkcs11:\n" +
                 "    enabled: false";
 
-        String chainId = args[2];
-        String orgId = args[3];
-        String nodeIp = args[4];
-        String nodePort = args[5];
-        String enableTLS = args[6];
+        String chainId = stubConfig.chainClient.chainId;
+        String orgId = stubConfig.chainClient.orgId;
+        String nodeAddress = stubConfig.chainClient.nodes.address;
+        String enableTLS = stubConfig.chainClient.nodes.enableTLS ? "true" : "false";
 
         File orgIdPath = new File(path + File.separator + "certs" + File.separator + orgId);
         File[] users = getUserPaths(orgIdPath);
@@ -301,7 +366,7 @@ public class ChainMakerStubFactory implements StubFactory {
                 tlsCertFilePath.getPath().substring(path.length() + 1),
                 signKeyFilePath.getPath().substring(path.length() + 1),
                 signCertFilePath.getPath().substring(path.length() + 1),
-                String.format("%s:%s", nodeIp, nodePort),
+                nodeAddress,
                 enableTLS,
                 "certs" + File.separator + orgId + File.separator + "ca");
 
@@ -325,10 +390,14 @@ public class ChainMakerStubFactory implements StubFactory {
         try {
             File basePath = new File(path);
             String chainName = basePath.getName();
+            ObjectMapper objectMapper = new ObjectMapper();
+            AddChainStubConfig stubConfig = objectMapper.readValue(args[2], AddChainStubConfig.class);
+            // 保存证书和私钥
+            saveCertsAndKeys(path, stubConfig);
             // 生成 stub.toml 文件
             generateStubToml(path);
             // 生成 sdk_config.yml 文件
-            generate_sdk_config(path, args);
+            generate_sdk_config(path, stubConfig);
 
             // 生成系统合约
             generateProxyContract(path);
