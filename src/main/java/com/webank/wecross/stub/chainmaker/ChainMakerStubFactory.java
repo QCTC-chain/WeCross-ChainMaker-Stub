@@ -3,6 +3,7 @@ package com.webank.wecross.stub.chainmaker;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.webank.wecross.exception.WeCrossException;
 import com.webank.wecross.stub.Account;
 import com.webank.wecross.stub.Connection;
 import com.webank.wecross.stub.Driver;
@@ -88,13 +89,13 @@ public class ChainMakerStubFactory implements StubFactory {
             // check proxy contract
             if(connection.hasProxyDeployed() == false) {
                 String errorMsg = "WeCrossProxy error: WeCrossProxy contract has not been deployed!";
-                throw new Exception(errorMsg);
+                throw new WeCrossException(WeCrossException.ErrorCode.INTER_CHAIN_ERROR, errorMsg);
             }
 
             // check hub contract
             if (!connection.hasHubDeployed()) {
                 String errorMsg = "WeCrossHub error: WeCrossHub contract has not been deployed!";
-                throw new Exception(errorMsg);
+                throw new WeCrossException(WeCrossException.ErrorCode.INTER_CHAIN_ERROR, errorMsg);
             }
 
             return connection;
