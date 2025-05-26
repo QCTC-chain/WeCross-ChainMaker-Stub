@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -31,6 +33,23 @@ public class RegisterContractHandler implements CommandHandler {
         return true;
     }
 
+    private String generateAddress(String contractName) {
+        String address = "";
+        try {
+            Method method = CryptoUtils.class.getDeclaredMethod(
+                    "generteAddrStr",
+                    byte[].class,
+                    ChainConfigOuterClass.AddrType.class);
+            method.setAccessible(true);
+            // 通过 null 调用静态方法（如果方法是静态的）
+            address = (String)method.invoke(null, contractName.getBytes(StandardCharsets.UTF_8),
+                    ChainConfigOuterClass.AddrType.CHAINMAKER);
+        } catch (Exception e) {
+            logger.error("通过合约名生成合约地址失败。{}", contractName);
+        }
+        return address;
+    }
+
     public void handle(
             Path path,
             Object[] args,
@@ -39,10 +58,27 @@ public class RegisterContractHandler implements CommandHandler {
             Connection connection,
             Driver.CustomCommandCallback callback) {
 
+        // 第一个参数是合约类型
+        // 最后一个参数是 REGISTER_CHAINMAEKER_CONTRACT 指令
+        if(args.length < 2) {
+            callback.onResponse(
+                    new TransactionException(
+                            ChainMakerStatusCode.HandleGetContracts,
+                            String.format("注册合约 %s 失败，参数异常。args: [EVM, {solidity_contract_abi}] | [DOCKER_GO]",
+                                    path.getResource())),
+                    null);
+            return;
+        }
+        String contractType = (String) args[0];
+        String contractName = path.getResource();
+        if("EVM".equals(contractType) && contractName.length() != 40) {
+            contractName = generateAddress(contractName);
+        }
+
         ChainMakerConnection chainMakerConnection = (ChainMakerConnection) connection;
         try {
             ContractOuterClass.Contract contract = chainMakerConnection.getChainClient().getContractInfo(
-                    path.getResource(),
+                    contractName,
                     ChainMakerConnection.RPC_CALL_TIMEOUT);
             ResourceInfo resourceInfo = new ResourceInfo();
             resourceInfo.setStubType(chainMakerConnection.getProperties().get(ChainMakerConstant.CHAINMAKER_STUB_TYPE));
@@ -52,8 +88,11 @@ public class RegisterContractHandler implements CommandHandler {
                     ChainMakerConstant.CHAINMAKER_CHAIN_ID,
                     chainMakerConnection.getProperties().get(ChainMakerConstant.CHAINMAKER_CHAIN_ID));
             resourceProperties.put(
-                    ChainMakerConstant.CHAINMAKER_CONTRACT_ADDRESS,
+                    ChainMakerConstant.CHAINMAKER_CONTRACT_NAME,
                     contract.getName());
+            resourceProperties.put(
+                    ChainMakerConstant.CHAINMAKER_CONTRACT_ADDRESS,
+                    contract.getAddress());
             resourceProperties.put(
                     ChainMakerConstant.CHAINMAKER_CONTRACT_VERSION,
                     contract.getVersion());

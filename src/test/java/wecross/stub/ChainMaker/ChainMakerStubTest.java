@@ -23,6 +23,7 @@ import org.web3j.abi.datatypes.*;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.utils.Numeric;
 
+import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -262,6 +263,28 @@ public class ChainMakerStubTest {
 
         contractAddress = CryptoUtils.nameToAddrStr(contractName, ChainConfigOuterClass.AddrType.ETHEREUM);
         System.out.println(contractAddress);
+
+        contractName = "sharedata_go";
+        contractAddress = CryptoUtils.nameToAddrStr(contractName, ChainConfigOuterClass.AddrType.CHAINMAKER);
+        System.out.println(contractAddress);
+
+        contractAddress = CryptoUtils.nameToAddrStr(contractName, ChainConfigOuterClass.AddrType.ETHEREUM);
+        System.out.println(contractAddress);
+
+        try {
+            Method method = CryptoUtils.class.getDeclaredMethod(
+                    "generteAddrStr",
+                    byte[].class,
+                    ChainConfigOuterClass.AddrType.class);
+            method.setAccessible(true);
+            contractName = "ShareDataContract";
+            // 通过 null 调用静态方法（如果方法是静态的）
+            contractAddress = (String)method.invoke(null, contractName.getBytes(StandardCharsets.UTF_8),
+                    ChainConfigOuterClass.AddrType.ETHEREUM);
+            System.out.println(contractAddress);
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+        }
     }
 
     @Test
