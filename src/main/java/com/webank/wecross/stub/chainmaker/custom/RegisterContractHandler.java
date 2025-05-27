@@ -60,6 +60,8 @@ public class RegisterContractHandler implements CommandHandler {
 
         // 第一个参数是合约类型
         // 最后一个参数是 REGISTER_CHAINMAEKER_CONTRACT 指令
+        // args: ["EVM", "{{abi_content}}", "REGISTER_CHAINMAEKER_CONTRACT"]
+        // or: ["DOCKER_GO", "REGISTER_CHAINMAEKER_CONTRACT"]
         if(args.length < 2) {
             callback.onResponse(
                     new TransactionException(
@@ -73,6 +75,15 @@ public class RegisterContractHandler implements CommandHandler {
         String contractName = path.getResource();
         if("EVM".equals(contractType) && contractName.length() != 40) {
             contractName = generateAddress(contractName);
+        }
+
+        if("EVM".equals(contractType) && args.length == 2) {
+            callback.onResponse(
+                    new TransactionException(
+                            ChainMakerStatusCode.HandleGetContracts,
+                            String.format("请提供合约的 ABI")),
+                    null);
+            return;
         }
 
         ChainMakerConnection chainMakerConnection = (ChainMakerConnection) connection;
@@ -101,21 +112,12 @@ public class RegisterContractHandler implements CommandHandler {
                     contract.getRuntimeType().name());
             resourceInfo.setProperties(resourceProperties);
 
-            if(!isExistsABI(chainMakerConnection.getConfigPath(), contract.getName())) {
-                // args 最后一个参数是命令
-                if(args.length == 1) {
-                    callback.onResponse(
-                            new TransactionException(
-                                    ChainMakerStatusCode.HandleGetContracts,
-                                    String.format("请提供 %s 合约的 ABI", contract.getName())),
-                            null);
-                    return;
-                } else {
-                    ConfigUtils.writeContractABI(
-                            chainMakerConnection.getConfigPath(),
-                            contract.getName(),
-                            (String) args[0]);
-                }
+            if("EVM".equals(contractType)
+                    && !isExistsABI(chainMakerConnection.getConfigPath(), contract.getName())) {
+                ConfigUtils.writeContractABI(
+                        chainMakerConnection.getConfigPath(),
+                        contract.getName(),
+                        (String) args[1]);
             }
             chainMakerConnection.getConnectionEventHandler().onANewResource(resourceInfo);
             callback.onResponse(null, resourceProperties);
