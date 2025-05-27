@@ -307,6 +307,26 @@ public class ChainMakerConnection implements Connection {
         callback.onResponse(response);
     }
 
+    private ContractOuterClass.Contract getContractInfo(String contractName) {
+        ContractOuterClass.Contract contractInfo;
+        try {
+            contractInfo = chainClient.getContractInfo(contractName, RPC_CALL_TIMEOUT);
+        } catch(ChainMakerCryptoSuiteException | ChainClientException e) {
+            // 如果是 EVM 合约，可能还需要计算一下合约名称
+            if(e.getMessage().contains("contract not exist")) {
+                contractName = com.webank.wecross.stub.chainmaker.utils.CryptoUtils.generateAddress(contractName);
+                try {
+                    contractInfo = chainClient.getContractInfo(contractName, RPC_CALL_TIMEOUT);
+                } catch (Exception exception) {
+                    contractInfo = null;
+                }
+            } else {
+                contractInfo = null;
+            }
+        }
+        return contractInfo;
+    }
+
     private void handleAsyncRawTransactionRequest(Request request, Callback callback) {
         Response response = new Response();
         try {
@@ -315,7 +335,13 @@ public class ChainMakerConnection implements Connection {
             Map<String, Object> requestData = (Map<String, Object>)Serialization.deserialize(request.getData());
             String method = (String)requestData.get("method");
             String[] args = (String[])requestData.get("args");
-            ContractOuterClass.Contract contractInfo = chainClient.getContractInfo(contractName, RPC_CALL_TIMEOUT);
+            ContractOuterClass.Contract contractInfo = getContractInfo(contractName);
+            if(contractInfo == null) {
+                response.setErrorCode(ChainMakerStatusCode.InnerError);
+                response.setErrorMessage(String.format("合约 %s 不存在", path.getResource()));
+                callback.onResponse(response);
+                return;
+            }
             ResultOuterClass.TxResponse responseInfo = null;
             Map<String, byte[]> params = new HashMap<>();
             String abiContent = "";
@@ -349,6 +375,8 @@ public class ChainMakerConnection implements Connection {
                     Web3jFunctionBuilder builder = new Web3jFunctionBuilder();
                     abiContent = ConfigUtils.getContractABI(getConfigPath(), contractName);
                     function = builder.buildFunctionFromAbi(abiContent, method, args);
+
+                    contractName = contractInfo.getName();
                 }
 
                 String encodedFunction = FunctionEncoder.encode(function);

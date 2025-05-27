@@ -33,23 +33,6 @@ public class RegisterContractHandler implements CommandHandler {
         return true;
     }
 
-    private String generateAddress(String contractName) {
-        String address = "";
-        try {
-            Method method = CryptoUtils.class.getDeclaredMethod(
-                    "generteAddrStr",
-                    byte[].class,
-                    ChainConfigOuterClass.AddrType.class);
-            method.setAccessible(true);
-            // 通过 null 调用静态方法（如果方法是静态的）
-            address = (String)method.invoke(null, contractName.getBytes(StandardCharsets.UTF_8),
-                    ChainConfigOuterClass.AddrType.CHAINMAKER);
-        } catch (Exception e) {
-            logger.error("通过合约名生成合约地址失败。{}", contractName);
-        }
-        return address;
-    }
-
     public void handle(
             Path path,
             Object[] args,
@@ -74,7 +57,7 @@ public class RegisterContractHandler implements CommandHandler {
         String contractType = (String) args[0];
         String contractName = path.getResource();
         if("EVM".equals(contractType) && contractName.length() != 40) {
-            contractName = generateAddress(contractName);
+            contractName = com.webank.wecross.stub.chainmaker.utils.CryptoUtils.generateAddress(contractName);
         }
 
         if("EVM".equals(contractType) && args.length == 2) {
