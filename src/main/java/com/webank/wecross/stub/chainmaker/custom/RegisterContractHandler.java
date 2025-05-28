@@ -7,17 +7,13 @@ import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerStatusCode;
 import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 import org.chainmaker.pb.common.ContractOuterClass;
-import org.chainmaker.pb.config.ChainConfigOuterClass;
 import org.chainmaker.sdk.ChainClientException;
 import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
 
-import org.chainmaker.sdk.utils.CryptoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.reflect.Method;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,9 +38,9 @@ public class RegisterContractHandler implements CommandHandler {
             Driver.CustomCommandCallback callback) {
 
         // 第一个参数是合约类型
-        // 最后一个参数是 REGISTER_CHAINMAEKER_CONTRACT 指令
-        // args: ["EVM", "{{abi_content}}", "REGISTER_CHAINMAEKER_CONTRACT"]
-        // or: ["DOCKER_GO", "REGISTER_CHAINMAEKER_CONTRACT"]
+        // 最后一个参数是 REGISTER_EXISTING_CONTRACT 指令
+        // args: ["EVM", "{{abi_content}}", "REGISTER_EXISTING_CONTRACT"]
+        // or: ["DOCKER_GO", "REGISTER_EXISTING_CONTRACT"]
         if(args.length < 2) {
             callback.onResponse(
                     new TransactionException(
@@ -95,11 +91,15 @@ public class RegisterContractHandler implements CommandHandler {
                     contract.getRuntimeType().name());
             resourceInfo.setProperties(resourceProperties);
 
-            if("EVM".equals(contractType)
-                    && !isExistsABI(chainMakerConnection.getConfigPath(), contract.getName())) {
+            if("EVM".equals(contractType)) {
                 ConfigUtils.writeContractABI(
                         chainMakerConnection.getConfigPath(),
                         contract.getName(),
+                        (String) args[1]);
+
+                ConfigUtils.writeContractABI(
+                        chainMakerConnection.getConfigPath(),
+                        path.getResource(),
                         (String) args[1]);
             }
             chainMakerConnection.getConnectionEventHandler().onANewResource(resourceInfo);
