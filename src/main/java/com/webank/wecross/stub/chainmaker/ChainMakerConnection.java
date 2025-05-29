@@ -130,7 +130,10 @@ public class ChainMakerConnection implements Connection {
                 || (topic.length() == 2 && topic.charAt(0) == '"' && topic.charAt(1) == '"')) {
             topic = "";
         } else {
-            ContractOuterClass.Contract contractInfo = chainClient.getContractInfo(contract, RPC_CALL_TIMEOUT);
+            ContractOuterClass.Contract contractInfo = getContractInfo(contract);
+            if(contractInfo == null) {
+                throw new ChainClientException(String.format("合约 %s 不存在", contract));
+            }
             if (contractInfo.getRuntimeType().name().equals("EVM")) {
                 topic = stringToTopic(topic);
             }

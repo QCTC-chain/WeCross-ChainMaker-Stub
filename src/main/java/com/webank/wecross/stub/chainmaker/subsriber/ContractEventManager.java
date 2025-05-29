@@ -164,8 +164,9 @@ public class ContractEventManager {
                         result.put("contract_name", eventInfo.getContractName());
                         result.put("contract_version", eventInfo.getContractVersion());
 
-                        ContractOuterClass.Contract contractInfo = finalChainClient.getContractInfo(
-                                eventInfo.getContractName(), ChainMakerConnection.RPC_CALL_TIMEOUT);
+                        ContractOuterClass.Contract contractInfo = getContractInfo(
+                                finalChainClient,
+                                eventInfo.getContractName());
                         if (contractInfo.getRuntimeType().name().equals("DOCKER_GO")) {
                             result.put("event_data", eventInfo.getEventDataList());
                         } else if (contractInfo.getRuntimeType().name().equals("EVM")) {
@@ -194,8 +195,6 @@ public class ContractEventManager {
                     }
                 } catch (InvalidProtocolBufferException e) {
                     logger.error("处理订阅事件 {}:{} 失败。{}", context.getPath().getResource(), topic, e.getMessage());
-                } catch (ChainMakerCryptoSuiteException | ChainClientException e) {
-                    logger.error("获取合约 {} 信息 失败。{}", context.getPath().getResource(), e.getMessage());
                 } catch (JsonProcessingException e) {
                     logger.error("处理订阅事件结果失败 {}:{}。{}", context.getPath().getResource(), topic, e.getMessage());
                 }
@@ -219,7 +218,11 @@ public class ContractEventManager {
 
             }
         };
-        chainClient.subscribeContractEvent(from, to, topic, context.getPath().getResource(), observer);
+        ContractOuterClass.Contract contractInfo = getContractInfo(chainClient, context.getPath().getResource());
+        if(contractInfo == null) {
+            throw new ChainClientException(String.format("合约 %s 不存在", context.getPath().getResource()));
+        }
+        chainClient.subscribeContractEvent(from, to, topic, contractInfo.getName(), observer);
         return chainClient;
     }
 
@@ -230,5 +233,25 @@ public class ContractEventManager {
             }
         }
         return null;
+    }
+
+    private ContractOuterClass.Contract getContractInfo(ChainClient chainClient, String contractName) {
+        ContractOuterClass.Contract contractInfo;
+        try {
+            contractInfo = chainClient.getContractInfo(contractName, ChainMakerConnection.RPC_CALL_TIMEOUT);
+        } catch(ChainMakerCryptoSuiteException | ChainClientException e) {
+            // 如果是 EVM 合约，可能还需要计算一下合约名称
+            if(e.getMessage().contains("contract not exist")) {
+                contractName = com.webank.wecross.stub.chainmaker.utils.CryptoUtils.generateAddress(contractName);
+                try {
+                    contractInfo = chainClient.getContractInfo(contractName, ChainMakerConnection.RPC_CALL_TIMEOUT);
+                } catch (Exception exception) {
+                    contractInfo = null;
+                }
+            } else {
+                contractInfo = null;
+            }
+        }
+        return contractInfo;
     }
 }
