@@ -384,6 +384,7 @@ public class ChainMakerConnection implements Connection {
             }
 
             Function function = null;
+            boolean isGetInterChainRequestsFun = false;
             if (contractInfo.getRuntimeType().name().equals("DOCKER_GO")) {
                 logger.info("DOCKER_GO call {} {}", method, args);
                 if (args != null) {
@@ -398,14 +399,14 @@ public class ChainMakerConnection implements Connection {
             } else if(contractInfo.getRuntimeType().name().equals("EVM")) {
                 logger.info("EVM call {} {}", method, args);
 
+                abiContent = ConfigUtils.getContractABI(getConfigPath(), contractName);
                 if (path.getResource().equals("WeCrossHub") && method.equals("getInterchainRequests")) {
                     function = FunctionUtility.newGetInterChainRequestHubFunction(Integer.valueOf(args[0]));
-                    contractName = ChainMakerConstant.CHAINMAKER_PROXY_NAME;
+                    contractName = contractInfo.getName();
+                    isGetInterChainRequestsFun = true;
                 } else {
                     Web3jFunctionBuilder builder = new Web3jFunctionBuilder();
-                    abiContent = ConfigUtils.getContractABI(getConfigPath(), contractName);
                     function = builder.buildFunctionFromAbi(abiContent, method, args);
-
                     contractName = contractInfo.getName();
                 }
 
@@ -453,7 +454,11 @@ public class ChainMakerConnection implements Connection {
                     List<Object> decodeObject = abiCodecObject.decodeJavaObject(abiOutputObject, hexOutput);
                     ObjectMapper objectMapper = new ObjectMapper();
                     Map<String, Object> finalResult = mergeOutputResult(abiDefinition.getOutputs(), decodeObject);
-                    result.put("data", objectMapper.writeValueAsString(finalResult));
+                    if (isGetInterChainRequestsFun) {
+                        result.put("data", decodeObject.get(0));
+                    } else {
+                        result.put("data", objectMapper.writeValueAsString(finalResult));
+                    }
                 } else {
                     result.put("data", responseInfo.getContractResult().getResult().toStringUtf8());
                 }
@@ -492,9 +497,9 @@ public class ChainMakerConnection implements Connection {
             Object decodeResult = decodeResults.get(i);
             ABIDefinition.NamedType output = outputs.get(i);
             if(output.getType().equals("tuple")) {
-                fillTupleType(decodeResult, output, finalOutput);
+                fillTupleType(i, decodeResult, output, finalOutput);
             } else {
-                fillOtherType(decodeResult, output, finalOutput);
+                fillOtherType(i, decodeResult, output, finalOutput);
             }
         }
 
@@ -502,6 +507,7 @@ public class ChainMakerConnection implements Connection {
     }
 
     private void fillTupleType(
+            int baseIndex,
             Object object,
             ABIDefinition.NamedType namedType,
             Map<String, Object> finalOutput) {
@@ -511,19 +517,28 @@ public class ChainMakerConnection implements Connection {
             ABIDefinition.NamedType comp = components.get(i);
             if (comp.getType().equals("tuple")) {
                 Map<String, Object> struct = new HashMap<>();
-                fillTupleType(objects.get(i), comp, struct);
-                finalOutput.put(comp.getName(), struct);
+                fillTupleType(baseIndex + i, objects.get(i), comp, struct);
+                String key = comp.getName();
+                if(key.isEmpty()) {
+                    key = String.format("r_%d", baseIndex);
+                }
+                finalOutput.put(key, struct);
             } else {
-                fillOtherType(objects.get(i), comp, finalOutput);
+                fillOtherType(i, objects.get(i), comp, finalOutput);
             }
         }
     }
 
     private void fillOtherType(
+            int baseIndex,
             Object object,
             ABIDefinition.NamedType namedType,
             Map<String, Object> finalOutput) {
-        finalOutput.put(namedType.getName(), object);
+        String key = namedType.getName();
+        if(key.isEmpty()) {
+            key = String.format("r_%d", baseIndex);
+        }
+        finalOutput.put(key, object);
     }
 
     private void handleGetContractListRequest(Request request, Callback callback) {
