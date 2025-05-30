@@ -2,6 +2,7 @@ package com.webank.wecross.stub.chainmaker;
 
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.config.ChainMakerStubConfigParser;
+import com.webank.wecross.stub.chainmaker.utils.CryptoUtils;
 import org.chainmaker.pb.common.ContractOuterClass;
 import org.chainmaker.sdk.ChainClient;
 
@@ -21,10 +22,12 @@ public class ChainMakerConnectionFactory {
 
             ContractOuterClass.Contract[] contracts = chainClient.getContractList(5000);
             for(ContractOuterClass.Contract contract : contracts) {
-                if (ChainMakerConstant.CHAINMAKER_HUB_NAME.equals(contract.getName())) {
+                if (ChainMakerConstant.CHAINMAKER_HUB_NAME.equals(contract.getName())
+                        || CryptoUtils.generateAddress(ChainMakerConstant.CHAINMAKER_HUB_NAME).equals(contract.getName())) {
                     connection.addProperty(ChainMakerConstant.CHAINMAKER_HUB_NAME, contract.getAddress());
                 }
-                if (ChainMakerConstant.CHAINMAKER_PROXY_NAME.equals(contract.getName())) {
+                if (ChainMakerConstant.CHAINMAKER_PROXY_NAME.equals(contract.getName())
+                        || CryptoUtils.generateAddress(ChainMakerConstant.CHAINMAKER_PROXY_NAME).equals(contract.getName())) {
                     connection.addProperty(ChainMakerConstant.CHAINMAKER_PROXY_NAME, contract.getAddress());
                 }
             }
