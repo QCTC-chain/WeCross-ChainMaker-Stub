@@ -2,6 +2,7 @@ package com.webank.wecross.stub.chainmaker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.webank.wecross.exception.WeCrossException;
 import com.webank.wecross.stub.*;
 
 import com.webank.wecross.stub.chainmaker.abi.ABICodec;
@@ -125,20 +126,46 @@ public class ChainMakerConnection implements Connection {
             String topic,
             long from,
             long to) throws ChainClientException, ChainMakerCryptoSuiteException {
+        List<String> subscribingTopics = new ArrayList<>();
         if(topic.equals("*")
                 || (topic.length() == 2 && topic.charAt(0) == '\'' && topic.charAt(1) == '\'')
                 || (topic.length() == 2 && topic.charAt(0) == '"' && topic.charAt(1) == '"')) {
             topic = "";
+            subscribingTopics.add(topic);
         } else {
             ContractOuterClass.Contract contractInfo = getContractInfo(contract);
             if(contractInfo == null) {
                 throw new ChainClientException(String.format("合约 %s 不存在", contract));
             }
             if (contractInfo.getRuntimeType().name().equals("EVM")) {
-                topic = stringToTopic(topic);
+                String abiContent;
+                try {
+                    abiContent = ConfigUtils.getContractABI(getConfigPath(), contractInfo.getName());
+                } catch (IOException | WeCrossException e) {
+                    throw new ChainClientException(String.format("获取合约 (%s) abi 失败", contract));
+                }
+                ABIDefinitionFactory abiDefinitionFactory = new ABIDefinitionFactory();
+                ContractABIDefinition contractABIDefinition = abiDefinitionFactory.loadABI(abiContent);
+                Map<String, List<ABIDefinition>> abiDefinitionMap = contractABIDefinition.getEvents();
+                List<ABIDefinition> abiDefinitions = abiDefinitionMap.get(topic);
+                if(abiDefinitions == null) {
+                    throw new ChainClientException(String.format("合约 (%s) 不存在该事件 (%s)", contract, topic));
+                }
+                context.getResourceInfo().getProperties().put(contractInfo.getName(), contract);
+                for(ABIDefinition abiDefinition: abiDefinitions) {
+                    String signatureString = abiDefinition.getMethodSignatureAsString();
+                    String encodedTopic = stringToTopic(signatureString);
+                    subscribingTopics.add(encodedTopic);
+                    context.getResourceInfo().getProperties().put(encodedTopic, topic);
+                }
             }
         }
-        return contractEventManager.addSubscriber(context, topic, from, to);
+        StringJoiner subscribeIds = new StringJoiner(",");
+        for(String subscribeTopic: subscribingTopics) {
+            String subscribeId = contractEventManager.addSubscriber(context, subscribeTopic, from, to);
+            subscribeIds.add(subscribeId);
+        }
+        return subscribeIds.toString();
     }
 
     public void cancelSubscriber(String subscriberId) {

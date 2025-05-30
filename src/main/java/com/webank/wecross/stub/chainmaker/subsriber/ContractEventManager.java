@@ -164,6 +164,8 @@ public class ContractEventManager {
                         result.put("contract_name", eventInfo.getContractName());
                         result.put("contract_version", eventInfo.getContractVersion());
 
+                        String finalTopic = topic;
+                        String finalContractName = eventInfo.getContractName();
                         ContractOuterClass.Contract contractInfo = getContractInfo(
                                 finalChainClient,
                                 eventInfo.getContractName());
@@ -186,11 +188,17 @@ public class ContractEventManager {
                                 Map<String, Object> decodedData = abiCodec.decodeEvent(abiContent, eventInfo);
                                 result.put("event_data", decodedData);
                             }
+
+                            finalTopic = (String) context.getResourceInfo().getProperties().get(eventInfo.getTopic());
+                            finalContractName = (String) context.getResourceInfo().getProperties().get(contractInfo.getName());
+
+                            result.put("topic", finalTopic);
+                            result.put("contract_name", finalContractName);
                         }
                         ObjectMapper objectMapper = new ObjectMapper();
                         context.getCallback().onSubscribe(
-                                eventInfo.getContractName(),
-                                topic,
+                                finalContractName,
+                                finalTopic,
                                 objectMapper.writeValueAsString(result));
                     }
                 } catch (InvalidProtocolBufferException e) {
