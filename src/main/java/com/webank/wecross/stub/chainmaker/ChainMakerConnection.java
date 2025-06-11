@@ -158,6 +158,8 @@ public class ChainMakerConnection implements Connection {
                     subscribingTopics.add(encodedTopic);
                     context.getResourceInfo().getProperties().put(encodedTopic, topic);
                 }
+            } else {
+                subscribingTopics.add(topic);
             }
         }
         StringJoiner subscribeIds = new StringJoiner(",");

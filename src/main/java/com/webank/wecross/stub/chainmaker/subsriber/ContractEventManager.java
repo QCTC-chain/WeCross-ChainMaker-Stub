@@ -231,6 +231,7 @@ public class ContractEventManager {
             throw new ChainClientException(String.format("合约 %s 不存在", context.getPath().getResource()));
         }
         chainClient.subscribeContractEvent(from, to, topic, contractInfo.getName(), observer);
+        logger.info("subscribeContractEvent: topic={}, contract={}, from={}, to={}", topic, contractInfo.getName(), from, to);
         return chainClient;
     }
 
