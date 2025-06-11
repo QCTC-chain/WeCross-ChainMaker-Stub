@@ -23,12 +23,14 @@ public class ABICodec {
         ABIObject inputObject = abiObjectFactory.createEventInputObject(abiDefinition);
         ABICodecObject abiCodecObject = new ABICodecObject();
         Map<String, Object> params = new HashMap<>();
+        List<Object> values = new ArrayList<>();
 
         int indexedCount = 0;
         for(ABIDefinition.NamedType namedType: abiDefinition.getInputs()) {
             if (namedType.isIndexed()) {
                 String dataEvent = event.getEventData(indexedCount++);
                 params.put(namedType.getName(), dataEvent);
+                values.add(dataEvent);
             }
         }
 
@@ -40,9 +42,11 @@ public class ABICodec {
                 if (!namedType.isIndexed()) {
                     Object object = decodeObject.get(index++);
                     params.put(namedType.getName(), object);
+                    values.add(object);
                 }
             }
         }
+        params.put("values", values);
         return params;
     }
 

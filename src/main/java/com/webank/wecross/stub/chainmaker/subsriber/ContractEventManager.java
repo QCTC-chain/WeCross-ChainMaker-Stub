@@ -186,7 +186,7 @@ public class ContractEventManager {
                             if (!abiContent.isEmpty()) {
                                 ABICodec abiCodec = new ABICodec();
                                 Map<String, Object> decodedData = abiCodec.decodeEvent(abiContent, eventInfo);
-                                result.put("event_data", decodedData);
+                                result.put("event_data", decodedData.get("values"));
                             }
 
                             finalTopic = (String) context.getResourceInfo().getProperties().get(eventInfo.getTopic());
