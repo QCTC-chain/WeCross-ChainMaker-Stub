@@ -6,6 +6,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.webank.wecross.stub.TransactionContext;
 import com.webank.wecross.stub.chainmaker.ChainMakerConnection;
 import com.webank.wecross.stub.chainmaker.abi.ABICodec;
+import com.webank.wecross.stub.chainmaker.account.ChainMakerAccount;
 import com.webank.wecross.stub.chainmaker.client.ChainMakerClient;
 import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 import io.grpc.stub.StreamObserver;
@@ -132,8 +133,11 @@ public class ContractEventManager {
             String topic) throws ChainClientException, ChainMakerCryptoSuiteException {
         ChainClient chainClient = null;
         try {
+            ChainMakerAccount chainMakerAccount = (ChainMakerAccount) context.getAccount();
             SdkConfig sdkConfig = ChainMakerClient.loadConfig(connection.getConfigPath(), "sdk_config.yml");
-            chainClient = ChainManager.getInstance().createChainClientWithoutPool(sdkConfig);
+            chainClient = ChainManager.getInstance().createChainClientWithoutPool(
+                    sdkConfig,
+                    chainMakerAccount.getUser());
         } catch (Exception e) {
             logger.error("创建订阅节点失败。{}", e.getMessage());
             return null;

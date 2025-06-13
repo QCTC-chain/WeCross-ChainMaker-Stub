@@ -7,6 +7,7 @@ import com.webank.wecross.stub.*;
 
 import com.webank.wecross.stub.chainmaker.abi.ABICodec;
 import com.webank.wecross.stub.chainmaker.abi.wrapper.*;
+import com.webank.wecross.stub.chainmaker.client.ChainMakerClient;
 import com.webank.wecross.stub.chainmaker.common.BlockUtility;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerRequestType;
@@ -25,6 +26,7 @@ import org.chainmaker.pb.common.ResultOuterClass;
 import org.chainmaker.pb.config.ChainConfigOuterClass;
 import org.chainmaker.sdk.ChainClient;
 import org.chainmaker.sdk.ChainClientException;
+import org.chainmaker.sdk.config.SdkConfig;
 import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
 import org.chainmaker.sdk.utils.CryptoUtils;
 import org.slf4j.Logger;
@@ -367,6 +369,7 @@ public class ChainMakerConnection implements Connection {
             Map<String, Object> requestData = (Map<String, Object>)Serialization.deserialize(request.getData());
             String method = (String)requestData.get("method");
             String[] args = (String[])requestData.get("args");
+            String identify = (String)requestData.get("identify");
             ContractOuterClass.Contract contractInfo = getContractInfo(contractName);
             if(contractInfo == null) {
                 response.setErrorCode(ChainMakerStatusCode.InnerError);
@@ -388,7 +391,7 @@ public class ChainMakerConnection implements Connection {
             Function function = null;
             boolean isGetInterChainRequestsFun = false;
             if (contractInfo.getRuntimeType().name().equals("DOCKER_GO")) {
-                logger.info("DOCKER_GO call {} {}", method, args);
+                logger.info("DOCKER_GO call {} {} from {}", method, args, identify);
                 if (args != null) {
                     for(int i = 0; i < args.length; i+=2) {
                         params.put(args[i], args[i + 1].getBytes(StandardCharsets.UTF_8));
@@ -399,7 +402,7 @@ public class ChainMakerConnection implements Connection {
                     params = null;
                 }
             } else if(contractInfo.getRuntimeType().name().equals("EVM")) {
-                logger.info("EVM call {} {}", method, args);
+                logger.info("EVM call {} {} from {}", method, args, identify);
 
                 abiContent = ConfigUtils.getContractABI(getConfigPath(), contractName);
                 if (path.getResource().equals("WeCrossHub") && method.equals("getInterchainRequests")) {

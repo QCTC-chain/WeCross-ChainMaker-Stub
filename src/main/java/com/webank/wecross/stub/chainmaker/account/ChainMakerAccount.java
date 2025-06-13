@@ -19,11 +19,15 @@ public class ChainMakerAccount implements Account {
     private final User user;
     private final String name;
     private final String type;
+    private int keyId;
+    private boolean isDefault;
 
-    public ChainMakerAccount(User user, String name, String type) {
+    public ChainMakerAccount(User user, String name, String type, int keyId, boolean isDefault) {
         this.user = user;
         this.name = name;
         this.type = type;
+        this.keyId = keyId;
+        this.isDefault = isDefault;
     }
 
     @Override
@@ -58,12 +62,12 @@ public class ChainMakerAccount implements Account {
 
     @Override
     public int getKeyID() {
-        return 0;
+        return this.keyId;
     }
 
     @Override
     public boolean isDefault() {
-        return false;
+        return this.isDefault;
     }
 
     public byte[] sign(byte[] message) {
@@ -105,5 +109,9 @@ public class ChainMakerAccount implements Account {
         }
 
         return verified;
+    }
+
+    public User getUser() {
+        return this.user;
     }
 }

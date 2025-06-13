@@ -110,13 +110,15 @@ public class ChainMakerStubFactory implements StubFactory {
         try {
             String ext = (String) properties.get("ext0");
             ObjectMapper objectMapper = new ObjectMapper();
-            Map<String, String> chainMakerProperties =
-                    objectMapper.readValue(ext, new TypeReference<Map<String, String>>(){});
+            Map<String, Object> chainMakerProperties =
+                    objectMapper.readValue(ext, new TypeReference<Map<String, Object>>(){});
 
-            chainMakerProperties.put("userKey", (String) properties.get("secKey"));
-            chainMakerProperties.put("userCert", (String) properties.get("pubKey"));
-            chainMakerProperties.put("username", (String) properties.get("username"));
-            chainMakerProperties.put("type", (String) properties.get("type"));
+            chainMakerProperties.put("userKey", properties.get("secKey"));
+            chainMakerProperties.put("userCert", properties.get("pubKey"));
+            chainMakerProperties.put("username", properties.get("username"));
+            chainMakerProperties.put("type", properties.get("type"));
+            chainMakerProperties.put("isDefault", properties.get("isDefault"));
+            chainMakerProperties.put("keyID", properties.get("keyID"));
 
             assert(chainMakerProperties.get("type").equals(this.stubType));
 

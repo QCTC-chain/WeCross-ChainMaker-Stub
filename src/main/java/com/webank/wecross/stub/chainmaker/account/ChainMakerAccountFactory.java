@@ -18,16 +18,19 @@ import java.util.Map;
 public class ChainMakerAccountFactory {
     private static final Logger logger = LoggerFactory.getLogger(ChainMakerAccountFactory.class);
 
-    public static ChainMakerAccount build(Map<String, String> properties) {
-        User user = null;
+    public static ChainMakerAccount build(Map<String, Object> properties) {
+        User user;
 
-        String accountType = properties.get("type");
-        String authType = properties.get("authType");
-        String orgId = properties.get("orgId");
-        String name = properties.get("username");
+        String accountType = (String) properties.get("type");
+        String authType = (String) properties.get("authType");
+        String orgId = (String)  properties.get("orgId");
+        String name = (String) properties.get("username");
+        int keyID = (int) properties.get("keyID");
+        Boolean isDefault = (Boolean) properties.get("isDefault");
+
 
         if(authType.equals(AuthType.PermissionedWithKey.getMsg()) || authType.equals(AuthType.Public.getMsg())) {
-            String privateKeyStr = properties.get("userKey");
+            String privateKeyStr = (String) properties.get("userKey");
             try {
                 user = new User(orgId);
                 PrivateKey privateKey = CryptoUtils.getPrivateKeyFromBytes(privateKeyStr.getBytes());
@@ -46,11 +49,11 @@ public class ChainMakerAccountFactory {
                 return null;
             }
         } else {
-            String userSignKey = properties.get("userSignKey");
-            String userSignCrt = properties.get("userSignCert");
-            String userKey = properties.get("userKey");
-            String userCrt = properties.get("userCert");
-            boolean pkcs11Enable = properties.get("pkcs11Enable").equalsIgnoreCase("true") ? true : false;
+            String userSignKey = (String) properties.get("userSignKey");
+            String userSignCrt = (String) properties.get("userSignCert");
+            String userKey = (String) properties.get("userKey");
+            String userCrt = (String) properties.get("userCert");
+            boolean pkcs11Enable = (boolean) properties.get("pkcs11Enable");
             try {
                 user = new User(
                     orgId, 
@@ -69,6 +72,7 @@ public class ChainMakerAccountFactory {
             }
         }
         user.setAuthType(authType);
-        return new ChainMakerAccount(user, name, accountType);
+        user.setEnableTxResultDispatcher(false);
+        return new ChainMakerAccount(user, name, accountType, keyID, isDefault);
     }
 }
