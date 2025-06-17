@@ -39,13 +39,13 @@ public class RegisterContractHandler implements CommandHandler {
 
         // 第一个参数是合约类型
         // 最后一个参数是 REGISTER_EXISTING_CONTRACT 指令
-        // args: ["EVM", "{{abi_content}}", "REGISTER_EXISTING_CONTRACT"]
+        // args: ["EVM", "{{abi_content}}", "{{address}}", "{{version}}", "REGISTER_EXISTING_CONTRACT"]
         // or: ["DOCKER_GO", "REGISTER_EXISTING_CONTRACT"]
         if(args.length < 2) {
             callback.onResponse(
                     new TransactionException(
                             ChainMakerStatusCode.HandleGetContracts,
-                            String.format("注册合约 %s 失败，参数异常。args: [EVM, {solidity_contract_abi}] | [DOCKER_GO]",
+                            String.format("注册合约 %s 失败，参数异常。args: [EVM, {solidity_contract_abi}, {address}, {version}] | [DOCKER_GO]",
                                     path.getResource())),
                     null);
             return;
