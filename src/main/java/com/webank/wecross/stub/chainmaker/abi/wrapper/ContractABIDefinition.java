@@ -80,12 +80,12 @@ public class ContractABIDefinition {
         String methodId = abiDefinition.getMethodId();
         methodIDToFunctions.put(methodId, abiDefinition);
 
-        logger.info(
-                " name: {}, methodId: {}, methodSignature: {}, abi: {}",
-                name,
-                methodId,
-                abiDefinition.getMethodSignatureAsString(),
-                abiDefinition);
+        //logger.info(
+        //        " name: {}, methodId: {}, methodSignature: {}, abi: {}",
+        //        name,
+        //        methodId,
+        //        abiDefinition.getMethodSignatureAsString(),
+        //        abiDefinition);
     }
 
     public void addEvent(String name, ABIDefinition abiDefinition) {

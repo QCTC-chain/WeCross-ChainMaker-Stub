@@ -9,6 +9,7 @@ import com.webank.wecross.stub.Connection;
 import com.webank.wecross.stub.Driver;
 import com.webank.wecross.stub.StubFactory;
 import com.webank.wecross.stub.WeCrossContext;
+import com.webank.wecross.stub.chainmaker.account.ChainMakerAccount;
 import com.webank.wecross.stub.chainmaker.account.ChainMakerAccountFactory;
 
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
@@ -122,9 +123,9 @@ public class ChainMakerStubFactory implements StubFactory {
 
             assert(chainMakerProperties.get("type").equals(this.stubType));
 
-            logger.info("newAccount, properties: {}", chainMakerProperties);
-
-            return ChainMakerAccountFactory.build(chainMakerProperties);
+            ChainMakerAccount account = ChainMakerAccountFactory.build(chainMakerProperties);
+            logger.info("newAccount, id: {}, properties: {}",account.getIdentity(), chainMakerProperties);
+            return account;
         } catch (JsonProcessingException e) {
             logger.warn("newAccount was failure. e: ", e);
             return null;

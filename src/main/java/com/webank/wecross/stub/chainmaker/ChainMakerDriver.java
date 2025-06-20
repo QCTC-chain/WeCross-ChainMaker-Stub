@@ -72,7 +72,13 @@ public class ChainMakerDriver implements Driver {
         boolean byProxy, 
         Connection connection, 
         Callback callback) {
-        logger.info("async, context: {}, request: {}, proxy: {}", context, request, byProxy);
+        if(!"WeCrossHub".equals(context.getPath().getResource())) {
+            logger.info("async, context: {}, request: {}, proxy: {} from {}",
+                    context,
+                    request,
+                    byProxy,
+                    context.getAccount().getIdentity());
+        }
         asyncCallOrInvokeDirectly(false, context, request, connection, callback);
     }
 
@@ -282,7 +288,16 @@ public class ChainMakerDriver implements Driver {
                     }
             );
         } catch (Exception e) {
-            logger.error("调用 asyncCallOrInvokeDirectly 失败。 {}", e.getMessage());
+            logger.error("{}", e);
+            String errorMsg = String.format("调用 %s:%s 失败。%s",
+                    context.getPath().getResource(),
+                    request.getMethod(),
+                    e.getMessage());
+            callback.onTransactionResponse(
+                    new TransactionException(
+                            ChainMakerStatusCode.InnerError,
+                            errorMsg),
+                    null);
         }
     }
 

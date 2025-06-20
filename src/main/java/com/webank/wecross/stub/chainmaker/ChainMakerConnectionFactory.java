@@ -6,6 +6,8 @@ import com.webank.wecross.stub.chainmaker.account.ChainMakerAccount;
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.config.ChainMakerStubConfigParser;
 import com.webank.wecross.stub.chainmaker.utils.CryptoUtils;
+import org.bouncycastle.jcajce.provider.digest.Keccak;
+import org.bouncycastle.util.encoders.Hex;
 import org.chainmaker.pb.common.ContractOuterClass;
 import org.chainmaker.sdk.ChainClient;
 
@@ -53,7 +55,15 @@ public class ChainMakerConnectionFactory {
         return  connection;
     }
 
-    public static ChainMakerConnection build(String stubConfigPath, Account account) throws Exception {
+    private static String sha256(byte[] data) {
+        Keccak.DigestKeccak kecc = new Keccak.Digest256();
+        kecc.update(data, 0, data.length);
+        byte[] address = kecc.digest();
+        String addr = Hex.toHexString(address);
+        return "0x" + addr.substring(24);
+    }
+
+    public synchronized static ChainMakerConnection build(String stubConfigPath, Account account) throws Exception {
         ChainMakerAccount chainMakerAccount = (ChainMakerAccount) account;
         ChainMakerConnection connection = connectionMap.get(chainMakerAccount.getIdentity());
         if(connection != null) {
@@ -65,6 +75,17 @@ public class ChainMakerConnectionFactory {
                 chainMakerAccount.getUser());
         connection = new ChainMakerConnection(chainClient);
         connection.setConfigPath(stubConfigPath);
+
+        User clientUser = connection.getChainClient().getClientUser();
+        String signCrtHash = sha256(clientUser.getCertBytes());
+        String signKeyHash = sha256(clientUser.getPrivateKey().getEncoded());
+        String tlsCrtHash = sha256(clientUser.getTlsCertificate().getEncoded());
+        String tlsKeyHash = sha256(clientUser.getTlsPrivateKey().getEncoded());
+        String orgId = clientUser.getOrgId();
+        String authType = clientUser.getAuthType();
+        Boolean isEnableTxResult = clientUser.getEnableTxResultDispatcher();
+        logger.info("ChainMakerConnection build id: {}, org: {}, authType: {}, isEnableTxResult: {}, sign: [{}, {}], tls: [{}, {}]",
+                chainMakerAccount.getIdentity(), orgId, authType, isEnableTxResult, signCrtHash, signKeyHash, tlsCrtHash, tlsKeyHash);
         addProperties(connection, stubConfigPath);
         connectionMap.put(chainMakerAccount.getIdentity(), connection);
         return connection;

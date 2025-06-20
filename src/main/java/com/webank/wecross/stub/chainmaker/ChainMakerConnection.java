@@ -402,14 +402,13 @@ public class ChainMakerConnection implements Connection {
                     params = null;
                 }
             } else if(contractInfo.getRuntimeType().name().equals("EVM")) {
-                logger.info("EVM call {} {} from {}", method, args, identify);
-
                 abiContent = ConfigUtils.getContractABI(getConfigPath(), contractName);
                 if (path.getResource().equals("WeCrossHub") && method.equals("getInterchainRequests")) {
                     function = FunctionUtility.newGetInterChainRequestHubFunction(Integer.valueOf(args[0]));
                     contractName = contractInfo.getName();
                     isGetInterChainRequestsFun = true;
                 } else {
+                    logger.info("EVM call {} {} from {}", method, args, identify);
                     Web3jFunctionBuilder builder = new Web3jFunctionBuilder();
                     function = builder.buildFunctionFromAbi(abiContent, method, args);
                     contractName = contractInfo.getName();

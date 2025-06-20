@@ -58,15 +58,15 @@ public class ABIDefinitionFactory {
                         break;
                 }
 
-                if (logger.isInfoEnabled()) {
-                    logger.info(" abiDefinition: {}", abiDefinition);
+                if (logger.isDebugEnabled()) {
+                    logger.debug(" abiDefinition: {}", abiDefinition);
                 }
             }
             if (contractABIDefinition.getConstructor() == null) {
                 contractABIDefinition.setConstructor(
                         ABIDefinition.createDefaultConstructorABIDefinition());
             }
-            logger.info(" contractABIDefinition {} ", contractABIDefinition);
+            //logger.info(" contractABIDefinition {} ", contractABIDefinition);
 
             return contractABIDefinition;
 

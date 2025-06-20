@@ -30,7 +30,7 @@ public class ABIObjectFactory {
                 abiObject.getStructFields().add(buildTypeObject(namedType));
             }
 
-            logger.info(" name: {}", name);
+            //logger.info(" name: {}", name);
 
             return abiObject;
 
