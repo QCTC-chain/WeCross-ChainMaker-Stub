@@ -62,10 +62,6 @@ public class ChainMakerAccountFactory {
                     userKey.getBytes(),
                     userCrt.getBytes(),
                     pkcs11Enable);
-
-                if(name.length() > 0) {
-                    user.setAlias(name);
-                }
             } catch (ChainMakerCryptoSuiteException ec) {
                 logger.warn("build a chainmaker account was failure. e: ", ec);
                 return null;
