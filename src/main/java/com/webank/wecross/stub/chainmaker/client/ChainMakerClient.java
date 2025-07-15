@@ -80,7 +80,7 @@ public class ChainMakerClient {
         chainManager = ChainManager.getInstance();
         ChainClient chainClient = chainManager.getChainClient(sdkConfig.getChainClient().getChainId());
         if(chainClient == null) {
-            chainClient = chainManager.createChainClient(sdkConfig);
+            chainClient = chainManager.createChainClientWithoutPool(sdkConfig);
         }
         logger.info("chianmaker's config: {}", chainClient.getChainConfig(5000));
         return chainClient;
