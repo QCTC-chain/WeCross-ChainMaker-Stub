@@ -14,9 +14,11 @@ import com.webank.wecross.stub.chainmaker.account.ChainMakerAccountFactory;
 
 import com.webank.wecross.stub.chainmaker.common.ChainMakerConstant;
 import com.webank.wecross.stub.chainmaker.config.AddChainStubConfig;
+import com.webank.wecross.stub.chainmaker.config.ChainMakerStubConfigParser;
 import com.webank.wecross.stub.chainmaker.custom.CommandHandlerDispatcher;
 import com.webank.wecross.stub.chainmaker.custom.DeployContractHandler;
 import com.webank.wecross.stub.chainmaker.custom.RegisterContractHandler;
+import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +27,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Map;
 import java.util.StringJoiner;
 
@@ -33,6 +38,7 @@ public class ChainMakerStubFactory implements StubFactory {
     private Logger logger = LoggerFactory.getLogger(ChainMakerStubFactory.class);
 
     private String stubConfigPath = "";
+    private ChainMakerConnection connection;
     private String stubType = "";
 
     public ChainMakerStubFactory(String subType) {
@@ -87,6 +93,8 @@ public class ChainMakerStubFactory implements StubFactory {
             ChainMakerConnection connection = ChainMakerConnectionFactory.build(stubConfigPath, "sdk_config.yml");
             connection.setConfigPath(stubConfigPath);
 
+            restoreContracts();
+
             // check proxy contract
             if(connection.hasProxyDeployed() == false) {
                 String errorMsg = "WeCrossProxy error: WeCrossProxy contract has not been deployed!";
@@ -98,12 +106,100 @@ public class ChainMakerStubFactory implements StubFactory {
                 String errorMsg = "WeCrossHub error: WeCrossHub contract has not been deployed!";
                 throw new WeCrossException(WeCrossException.ErrorCode.INTER_CHAIN_ERROR, errorMsg);
             }
-
+            this.connection = connection;
             return connection;
         } catch (Exception ec) {
             logger.error("New connection, e: ", ec);
             return null;
         }
+    }
+
+    private void restoreContracts() {
+        try {
+            Path source = getBackupPath();
+            Path target = getContractPath();
+            source = Paths.get(source + File.separator + "contract");
+            target = Paths.get(target + File.separator + "contract");
+            copyDirectoryTree(source, target);
+        } catch (WeCrossException e) {
+            logger.warn("获取备份路径异常: {} ", e);
+        } catch (IOException e) {
+            logger.warn("备份合约异常: {} ", e);
+        }
+    }
+
+    private void backUpContracts() {
+        try {
+            Path source = getContractPath();
+            Path target = getBackupPath();
+            source = Paths.get(source + File.separator + "contract");
+            target = Paths.get(target + File.separator + "contract");
+            copyDirectoryTree(source, target);
+        } catch (WeCrossException e) {
+            logger.warn("获取备份路径异常: {} ", e);
+        } catch (IOException e) {
+            logger.warn("备份合约异常: {} ", e);
+        }
+    }
+
+    private void copyDirectoryTree(Path source, Path target) throws IOException {
+        Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                Path relative = source.relativize(dir);
+                Path dest = target.resolve(relative);
+                Files.createDirectories(dest);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Path relative = source.relativize(file);
+                Path dest = target.resolve(relative);
+                Files.copy(file, dest, StandardCopyOption.REPLACE_EXISTING);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    private Path getContractPath() throws WeCrossException {
+        String sourceUri = stubConfigPath;
+        if (sourceUri.contains("classpath:")) {
+            sourceUri = ConfigUtils.classpath2Absolute(sourceUri);
+        }
+        File sourceFile = new File(sourceUri);
+        return Paths.get(sourceFile.getAbsolutePath());
+    }
+
+    private Path getBackupPath() throws WeCrossException, IOException {
+        ChainMakerStubConfigParser stubConfigParser = new ChainMakerStubConfigParser(
+                stubConfigPath, "stub.toml");
+        String configPath = stubConfigPath;
+        if (configPath.contains("classpath:")) {
+            configPath = ConfigUtils.classpath2Absolute(configPath);
+        }
+        File backupPath = new File(configPath);
+        String backupUri = backupPath.getParentFile().getParentFile().getAbsolutePath();
+
+        backupPath = new File(
+                backupUri +
+                        File.separator +
+                        ".backup" +
+                        File.separator +
+                        stubConfigParser.getStubType() +
+                        File.separator +
+                        stubConfigParser.getStubName());
+        if(!backupPath.exists()) {
+            backupPath.mkdirs();
+        }
+        return Paths.get(backupPath.getAbsolutePath());
+    }
+
+    @Override
+    public void releaseConnection() {
+        backUpContracts();
+        this.connection.getContractEventManager().stopAllSubscriber();
+        this.connection.getChainClient().stop();
     }
 
     @Override

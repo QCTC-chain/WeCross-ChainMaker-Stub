@@ -34,6 +34,7 @@ public class ChainMakerConnectionFactory {
                 stubConfigPath, "stub.toml");
         connection.addProperty(ChainMakerConstant.CHAINMAKER_CHAIN_ID, connection.getChainClient().getChainId());
         connection.addProperty(ChainMakerConstant.CHAINMAKER_STUB_TYPE, stubConfigParser.getStubType());
+        connection.addProperty(ChainMakerConstant.CHAINMAKER_CONTRACT_NAME, stubConfigParser.getStubName());
 
         ContractOuterClass.Contract[] contracts = connection.getChainClient().getContractList(5000);
         for(ContractOuterClass.Contract contract : contracts) {

@@ -75,6 +75,10 @@ public class ChainMakerConnection implements Connection {
         return this.configPath;
     }
 
+    public ContractEventManager getContractEventManager() {
+        return contractEventManager;
+    }
+
     @Override
     public void asyncSend(Request request, Callback callback) {
         if(request.getType() == ChainMakerRequestType.GET_BLOCK_NUMBER) {

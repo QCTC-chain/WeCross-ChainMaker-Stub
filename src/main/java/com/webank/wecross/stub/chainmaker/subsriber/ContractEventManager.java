@@ -126,6 +126,14 @@ public class ContractEventManager {
             logger.warn("订阅事件不存在。{}", subscriberId);
         }
     }
+
+    public void stopAllSubscriber() {
+        for(Map.Entry<String, ContractEventSubscriber> entry: subscribers.entrySet()) {
+            entry.getValue().subscriberClient.stop();
+        }
+        subscribers.clear();
+    }
+
     private ChainClient listenContractEvent(
             TransactionContext context,
             long from,
