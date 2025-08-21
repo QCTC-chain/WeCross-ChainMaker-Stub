@@ -153,6 +153,7 @@ public class ContractEventManager {
 
         ChainClient finalChainClient = chainClient;
         StreamObserver<ResultOuterClass.SubscribeResult> observer = new StreamObserver<ResultOuterClass.SubscribeResult>() {
+            private long blockHeight = from;
             // refer to:
             // https://git.chainmaker.org.cn/chainmaker/sdk-java/-/blob/master/src/test/java/org/chainmaker/sdk/TestSubscribe.java
             @Override
@@ -168,6 +169,7 @@ public class ContractEventManager {
                         logger.info("contract event: {}", eventInfo);
 
                         Map<String, Object> result = new HashMap<>();
+                        blockHeight = eventInfo.getBlockHeight();
                         result.put("block_height", eventInfo.getBlockHeight());
                         result.put("chain_id", eventInfo.getChainId());
                         result.put("tx_id", eventInfo.getTxId());
@@ -224,13 +226,33 @@ public class ContractEventManager {
             public void onError(Throwable t) {
                 // 长安链JAVA-SDK订阅合约事件后，过一段时间订阅失效
                 // https://git.chainmaker.org.cn/chainmaker/issue/-/issues/1072
-                try {
-                    Thread.sleep(100);
-                    finalChainClient.subscribeContractEvent(
-                            -1, -1, topic, context.getPath().getResource(), this);
-                } catch (Exception e) {
-                    logger.error("处理订阅事件 {}:{} 失败。{}", context.getPath().getResource(), topic, e.getMessage());
-                }
+
+                logger.error("订阅事件运行时出错。contract: {}, From: {}, to: {}, topic: {}。error: {}",
+                        context.getPath().getResource(),
+                        blockHeight,
+                        to,
+                        topic,
+                        t.getMessage());
+//                try {
+//                    logger.warn("订阅事件出错，重新订阅。contract: {}, From: {}, to: {}, topic: {}",
+//                            context.getPath().getResource(),
+//                            blockHeight,
+//                            to,
+//                            topic);
+//                    Thread.sleep(500);
+//                    finalChainClient.subscribeContractEvent(
+//                            blockHeight,
+//                            to,
+//                            topic,
+//                            context.getPath().getResource(),
+//                            this);
+//                } catch (Exception e) {
+//                    // java.lang.IllegalStateException: Pool not open
+//                    logger.error("重新订阅事件 {}:{} 失败。{}",
+//                            context.getPath().getResource(),
+//                            topic,
+//                            e.getMessage());
+//                }
             }
 
             @Override
