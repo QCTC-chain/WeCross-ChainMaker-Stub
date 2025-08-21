@@ -10,6 +10,7 @@ import com.webank.wecross.stub.chainmaker.account.ChainMakerAccount;
 import com.webank.wecross.stub.chainmaker.client.ChainMakerClient;
 import com.webank.wecross.stub.chainmaker.utils.ConfigUtils;
 import io.grpc.stub.StreamObserver;
+import org.chainmaker.pb.common.ChainmakerTransaction;
 import org.chainmaker.pb.common.ContractOuterClass;
 import org.chainmaker.pb.common.ResultOuterClass;
 import org.chainmaker.sdk.ChainClient;
@@ -21,6 +22,9 @@ import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -177,7 +181,19 @@ public class ContractEventManager {
                         result.put("topic", eventInfo.getTopic());
                         result.put("contract_name", eventInfo.getContractName());
                         result.put("contract_version", eventInfo.getContractVersion());
-
+                        try {
+                            ChainmakerTransaction.TransactionInfo info = finalChainClient
+                                    .getTxByTxId(
+                                            eventInfo.getTxId(),
+                                            5000);
+                            Instant instant = Instant.ofEpochSecond(info.getBlockTimestamp());
+                            LocalDateTime txTime = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
+                            result.put("tx_time", txTime.toString());
+                        } catch (ChainMakerCryptoSuiteException | ChainClientException e) {
+                            logger.warn("获取交易信息失败，txId: {}， error: ", eventInfo.getTxId(), e.getMessage());
+                        } catch (Exception e) {
+                            logger.warn("获取交易信息失败，txId: {}， error: ", eventInfo.getTxId(), e.getMessage());
+                        }
                         String finalTopic = topic;
                         String finalContractName = eventInfo.getContractName();
                         ContractOuterClass.Contract contractInfo = getContractInfo(
