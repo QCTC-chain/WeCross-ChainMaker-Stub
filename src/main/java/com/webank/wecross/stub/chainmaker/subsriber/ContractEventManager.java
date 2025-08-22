@@ -21,10 +21,12 @@ import org.chainmaker.sdk.crypto.ChainMakerCryptoSuiteException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -182,13 +184,14 @@ public class ContractEventManager {
                         result.put("contract_name", eventInfo.getContractName());
                         result.put("contract_version", eventInfo.getContractVersion());
                         try {
+                            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                             ChainmakerTransaction.TransactionInfo info = finalChainClient
                                     .getTxByTxId(
                                             eventInfo.getTxId(),
                                             5000);
                             Instant instant = Instant.ofEpochSecond(info.getBlockTimestamp());
                             LocalDateTime txTime = LocalDateTime.ofInstant(instant, ZoneId.of("Asia/Shanghai"));
-                            result.put("tx_time", txTime.toString());
+                            result.put("tx_time", txTime.format(formatter));
                         } catch (ChainMakerCryptoSuiteException | ChainClientException e) {
                             logger.warn("获取交易信息失败，txId: {}， error: ", eventInfo.getTxId(), e.getMessage());
                         } catch (Exception e) {
